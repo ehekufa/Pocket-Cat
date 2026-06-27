@@ -1,26 +1,15 @@
-blocks:
-  - type: event
-    name: start
-    category: event
-  - type: action
-    name: showCube
-    category: looks
-  - type: action
-    name: setColor
-    param: blue
-    category: looks
-  - type: action
-    name: printText
-    param: "Запуск!"
-    category: text
-  - type: event
-    name: tap
-    category: event
-  - type: action
-    name: changeX
-    param: 30
-    category: motion
-  - type: action
-    name: printText
-    param: "Нажали!"
-    category: text
+scenes:
+  - name: Сцена 1
+    bgColor: [0.2,0.2,0.4]
+    objects:
+      - name: Объект 1
+        image: null
+        blocks:
+          - type: event
+            name: start
+            label: при старте
+            category: event
+          - type: action
+            name: showCube
+            label: показать куб
+            category: looks
