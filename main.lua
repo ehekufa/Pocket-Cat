@@ -1,5 +1,5 @@
--- Pocket Cat IDE v0.5 – Вертикальные блоки + редактор параметров + скролл
--- События, движение, внешность, звук, управление, переменные, рисование, датчики
+-- Pocket Cat IDE v0.6 – Тач-скролл палитры, вертикальный скролл рабочей области,
+-- редактор параметров по тапу, перетаскивание длинным нажатием.
 
 -- ========== КАТЕГОРИИ И ЦВЕТА ==========
 local catColors = {
@@ -85,15 +85,24 @@ local blockWidth, blockHeight = 175, 34
 local paletteWidth = 200
 local paletteScrollY = 0
 local paletteContentHeight = 0
-local workspaceStartX = paletteWidth + 10   -- стартовый X для блоков
-local workspaceStartY = 60                  -- стартовый Y для первого блока
-local blockSpacing = 8                      -- отступ между блоками по вертикали
+local workspaceStartX = paletteWidth + 10
+local workspaceStartY = 60
+local blockSpacing = 8
+local workspaceScrollY = 0      -- скролл рабочей области
+local workspaceContentHeight = 0
 
 -- ========== РЕДАКТИРОВАНИЕ ПАРАМЕТРА ==========
-local editingBlockIdx = nil     -- индекс блока в workspaceBlocks
-local editingText = ""          -- текст в поле ввода
+local editingBlockIdx = nil
+local editingText = ""
 local editFieldW = 120
 local editFieldH = 30
+
+-- ========== СОСТОЯНИЕ КАСАНИЙ (для тач-управления) ==========
+local touchStartX, touchStartY = 0, 0
+local touchStartTime = 0
+local isTouchScrollingPalette = false
+local isTouchScrollingWorkspace = false
+local touchMoved = false
 
 -- ========== КУБ И СФЕРА ==========
 local cubeVertices = {
@@ -267,8 +276,8 @@ function runProject()
     end
 end
 
--- ========== РАСЧЁТ ВЫСОТЫ ПАЛИТРЫ ==========
-function calculatePaletteContentHeight()
+-- ========== РАСЧЁТ ВЫСОТ ==========
+function calculateHeights()
     local y = 10
     local lastCat = nil
     for _, b in ipairs(paletteBlocks) do
@@ -278,7 +287,9 @@ function calculatePaletteContentHeight()
         end
         y = y + blockHeight + 6
     end
-    return y
+    paletteContentHeight = y
+
+    workspaceContentHeight = workspaceStartY + #workspaceBlocks * (blockHeight + blockSpacing) + 100
 end
 
 -- ========== ОТРИСОВКА БЛОКОВ ==========
@@ -311,7 +322,7 @@ function love.load()
             {type="action", name="printText", label="вывести текст", param="Привет, Pocket Cat!", category="text"}
         }
     end
-    paletteContentHeight = calculatePaletteContentHeight()
+    calculateHeights()
 end
 
 function love.draw()
@@ -336,21 +347,25 @@ function love.draw()
     end
     love.graphics.setScissor()
 
-    -- Рабочая область
+    -- Рабочая область со скроллом
+    love.graphics.setScissor(paletteWidth, 0, love.graphics.getWidth()-paletteWidth, love.graphics.getHeight())
     love.graphics.setColor(0.1,0.1,0.1)
     love.graphics.rectangle("fill", paletteWidth, 0, love.graphics.getWidth()-paletteWidth, love.graphics.getHeight())
     love.graphics.setColor(1,1,1)
-    love.graphics.print("Рабочая область (перетащи сюда)", workspaceStartX, 10)
+    love.graphics.print("Рабочая область (перетащи сюда)", workspaceStartX, 10 - workspaceScrollY)
 
-    -- Отрисовка блоков вертикально
+    -- Отрисовка блоков вертикально со смещением workspaceScrollY
     for i, b in ipairs(workspaceBlocks) do
         local bx = workspaceStartX
-        local by = workspaceStartY + (i-1)*(blockHeight + blockSpacing)
+        local by = workspaceStartY + (i-1)*(blockHeight + blockSpacing) - workspaceScrollY
         local highlight = (editingBlockIdx == i)
         if not (draggingBlock == b and not dragFromPalette) then
-            drawBlock(b, bx, by, false, highlight)
+            if by + blockHeight > 0 and by < love.graphics.getHeight() then
+                drawBlock(b, bx, by, false, highlight)
+            end
         end
     end
+    love.graphics.setScissor()
 
     if draggingBlock then
         local mx, my = love.mouse.getPosition()
@@ -408,10 +423,12 @@ function love.draw()
 
     -- Текстовые сообщения
     love.graphics.setFont(font)
-    local msgY = workspaceStartY + #workspaceBlocks*(blockHeight+blockSpacing) + 20
+    local msgY = workspaceStartY + #workspaceBlocks*(blockHeight+blockSpacing) + 20 - workspaceScrollY
     for _, msg in ipairs(messages) do
-        love.graphics.setColor(1,1,1)
-        love.graphics.print(msg, workspaceStartX, msgY)
+        if msgY > 0 and msgY < love.graphics.getHeight() then
+            love.graphics.setColor(1,1,1)
+            love.graphics.print(msg, workspaceStartX, msgY)
+        end
         msgY = msgY + fontSize + 4
     end
     love.graphics.setFont(love.graphics.getFont())
@@ -420,7 +437,7 @@ function love.draw()
     if editingBlockIdx then
         local block = workspaceBlocks[editingBlockIdx]
         local bx = workspaceStartX
-        local by = workspaceStartY + (editingBlockIdx-1)*(blockHeight + blockSpacing)
+        local by = workspaceStartY + (editingBlockIdx-1)*(blockHeight + blockSpacing) - workspaceScrollY
         -- Поле ввода под блоком
         love.graphics.setColor(0.2,0.2,0.2)
         love.graphics.rectangle("fill", bx, by + blockHeight + 5, editFieldW, editFieldH)
@@ -432,8 +449,12 @@ function love.draw()
 end
 
 function love.update(dt)
-    local maxScroll = math.max(0, paletteContentHeight - love.graphics.getHeight())
-    paletteScrollY = math.max(0, math.min(paletteScrollY, maxScroll))
+    calculateHeights()
+    local maxPalScroll = math.max(0, paletteContentHeight - love.graphics.getHeight())
+    paletteScrollY = math.max(0, math.min(paletteScrollY, maxPalScroll))
+
+    local maxWsScroll = math.max(0, workspaceContentHeight - love.graphics.getHeight())
+    workspaceScrollY = math.max(0, math.min(workspaceScrollY, maxWsScroll))
 
     if not stopAll then
         if eventHandlers["tap"] and isTapped then
@@ -467,14 +488,16 @@ function love.update(dt)
     end
 end
 
+-- ========== ВВОД (мышь и клавиатура для ПК) ==========
 function love.wheelmoved(x, y)
     local mx, my = love.mouse.getPosition()
     if mx <= paletteWidth then
         paletteScrollY = paletteScrollY - y * 30
+    else
+        workspaceScrollY = workspaceScrollY - y * 30
     end
 end
 
--- Обработка ввода текста для редактирования параметра
 function love.textinput(t)
     if editingBlockIdx then
         editingText = editingText .. t
@@ -506,102 +529,110 @@ function love.keypressed(key)
     end
 end
 
-function love.mousepressed(x, y, button)
-    if button == 1 then
-        -- Если редактор открыт, клик вне поля закрывает его (кроме самого поля)
-        if editingBlockIdx then
-            local bx = workspaceStartX
-            local by = workspaceStartY + (editingBlockIdx-1)*(blockHeight + blockSpacing)
-            local inEditor = (x >= bx and x <= bx + editFieldW and
-                              y >= by + blockHeight + 5 and y <= by + blockHeight + 5 + editFieldH)
-            if not inEditor then
-                editingBlockIdx = nil
-                editingText = ""
-            end
+-- ========== ОБРАБОТКА КАСАНИЙ (телефон) ==========
+function love.touchpressed(id, x, y)
+    -- Запоминаем начальные координаты
+    touchStartX, touchStartY = x, y
+    touchStartTime = love.timer.getTime()
+    touchMoved = false
+    isTouchScrollingPalette = false
+    isTouchScrollingWorkspace = false
+
+    -- Если редактор открыт и тап вне поля ввода - закрываем
+    if editingBlockIdx then
+        local bx = workspaceStartX
+        local by = workspaceStartY + (editingBlockIdx-1)*(blockHeight + blockSpacing) - workspaceScrollY
+        local inEditor = (x >= bx and x <= bx + editFieldW and
+                          y >= by + blockHeight + 5 and y <= by + blockHeight + 5 + editFieldH)
+        if not inEditor then
+            editingBlockIdx = nil
+            editingText = ""
             return
         end
+    end
 
-        -- Кнопка запуска
-        if math.sqrt((x-30)^2 + (y-(love.graphics.getHeight()-40))^2) <= 22 then
-            runProject()
-            return
-        end
-        -- Сохранить / Загрузить
-        if x>=5 and x<=75 and y>=love.graphics.getHeight()-80 and y<=love.graphics.getHeight()-55 then
-            saveYAML("project.yml", workspaceBlocks)
-            return
-        end
-        if x>=80 and x<=150 and y>=love.graphics.getHeight()-80 and y<=love.graphics.getHeight()-55 then
-            local loaded = loadYAML("project.yml")
-            if loaded then workspaceBlocks = loaded end
-            return
-        end
+    -- Проверяем кнопки запуска, сохранить, загрузить (всегда)
+    if math.sqrt((x-30)^2 + (y-(love.graphics.getHeight()-40))^2) <= 22 then
+        runProject()
+        return
+    end
+    if x>=5 and x<=75 and y>=love.graphics.getHeight()-80 and y<=love.graphics.getHeight()-55 then
+        saveYAML("project.yml", workspaceBlocks)
+        return
+    end
+    if x>=80 and x<=150 and y>=love.graphics.getHeight()-80 and y<=love.graphics.getHeight()-55 then
+        local loaded = loadYAML("project.yml")
+        if loaded then workspaceBlocks = loaded end
+        return
+    end
 
-        -- Палитра (с учётом скролла)
-        local py = 10 - paletteScrollY
-        local lastCat = nil
-        for _, b in ipairs(paletteBlocks) do
-            if b.category ~= lastCat then
-                py = py + 20
-                lastCat = b.category
+    -- Определяем, в какой области тап
+    if x <= paletteWidth then
+        -- Палитра: запоминаем, что начали скролл (будет обработан в touchmoved)
+        isTouchScrollingPalette = true
+    else
+        -- Рабочая область
+        isTouchScrollingWorkspace = true
+    end
+end
+
+function love.touchmoved(id, x, y, dx, dy)
+    touchMoved = true
+    if isTouchScrollingPalette then
+        paletteScrollY = paletteScrollY - dy
+    elseif isTouchScrollingWorkspace then
+        workspaceScrollY = workspaceScrollY - dy
+    end
+
+    -- Если уже начали перетаскивание блока, то обновляем позицию (не используется, т.к. тач перетаскивание пока не поддерживается)
+end
+
+function love.touchreleased(id, x, y)
+    local dist = math.sqrt((x-touchStartX)^2 + (y-touchStartY)^2)
+    local dt = love.timer.getTime() - touchStartTime
+
+    -- Если почти не двигались и быстро отпустили - это тап
+    if not touchMoved and dist < 15 and dt < 0.3 then
+        if x <= paletteWidth then
+            -- Тап по блоку палитры — начинаем перетаскивание?
+            -- Пока для телефона упростим: тап по палитре добавляет блок в конец рабочей области
+            local yInPal = 10 - paletteScrollY
+            local lastCat = nil
+            for _, b in ipairs(paletteBlocks) do
+                if b.category ~= lastCat then
+                    yInPal = yInPal + 20
+                    lastCat = b.category
+                end
+                local by = yInPal
+                if x >= 5 and x <= 5+blockWidth and y >= by and y <= by+blockHeight then
+                    -- Добавляем блок в рабочую область
+                    local newBlock = {type=b.type, name=b.name, label=b.label, param=b.param, category=b.category}
+                    table.insert(workspaceBlocks, newBlock)
+                    calculateHeights()
+                    return
+                end
+                yInPal = yInPal + blockHeight + 6
             end
-            local bx, by = 5, py
-            if x>=bx and x<=bx+blockWidth and y>=by and y<=by+blockHeight then
-                draggingBlock = {type=b.type, name=b.name, label=b.label, param=b.param, category=b.category}
-                dragFromPalette = true
-                return
+        else
+            -- Тап по рабочей области
+            local tapX, tapY = x, y + workspaceScrollY
+            for i, b in ipairs(workspaceBlocks) do
+                local bx = workspaceStartX
+                local by = workspaceStartY + (i-1)*(blockHeight + blockSpacing)
+                if tapX >= bx and tapX <= bx+blockWidth and tapY >= by and tapY <= by+blockHeight then
+                    -- Открыть редактор параметра
+                    editingBlockIdx = i
+                    editingText = tostring(b.param or "")
+                    return
+                end
             end
-            py = py + blockHeight + 6
-        end
-
-        -- Рабочая область: ищем блок под курсором (вертикально)
-        for i, b in ipairs(workspaceBlocks) do
-            local bx = workspaceStartX
-            local by = workspaceStartY + (i-1)*(blockHeight + blockSpacing)
-            if x>=bx and x<=bx+blockWidth and y>=by and y<=by+blockHeight then
-                draggingBlock = b
-                dragFromPalette = false
-                table.remove(workspaceBlocks, i)
-                return
-            end
-        end
-
-        -- Клик по пустому месту рабочей области
-        if x >= paletteWidth then
+            -- Пустое место: триггерим событие tap
             isTapped = true
             touchActive = true
         end
     end
-end
 
-function love.mousereleased(x, y, button)
-    if button == 1 then
-        if draggingBlock then
-            if x >= paletteWidth then
-                -- Вставляем блок в конец списка
-                table.insert(workspaceBlocks, draggingBlock)
-                local idx = #workspaceBlocks
-                -- Проверяем, был ли это клик (почти без перемещения)
-                if not dragFromPalette then
-                    local startX = workspaceStartX
-                    local startY = workspaceStartY + (idx-1)*(blockHeight + blockSpacing)
-                    local dx = x - (startX + blockWidth/2)
-                    local dy = y - (startY + blockHeight/2)
-                    if math.abs(dx) < 15 and math.abs(dy) < 15 then
-                        -- Открываем редактор параметра для этого блока
-                        editingBlockIdx = idx
-                        editingText = tostring(draggingBlock.param or "")
-                    end
-                end
-            end
-            draggingBlock = nil
-            dragFromPalette = false
-        end
-        isReleased = true
-        touchActive = false
-    end
+    isTouchScrollingPalette = false
+    isTouchScrollingWorkspace = false
+    touchMoved = false
 end
-
-function love.touchpressed(id, x, y) love.mousepressed(x, y, 1) end
-function love.touchreleased(id, x, y) love.mousereleased(x, y, 1) end
-function love.mousemoved(x, y) mouseMoved = true end
