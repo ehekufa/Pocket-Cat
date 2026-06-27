@@ -56,7 +56,6 @@ end
 
 State = {
     project = nil, currentSceneIdx = 1, currentObjectIdx = 1,
-    currentEditorTab = "palette",
     catColors = {
         event = {0.9,0.6,0.2}, motion = {0.2,0.6,0.9}, looks = {0.7,0.3,0.9},
         sound = {0.3,0.9,0.4}, control = {1.0,0.8,0.2}, variables = {0.9,0.2,0.2},
@@ -117,6 +116,8 @@ State = {
     paintSizes = {1, 2, 4, 8},
     paintPresetSizes = {{64,64}, {32,32}, {16,16}, {128,128}, {200,146}},
     paintCustomInput = false, paintCustomInputText = "",
+    paintCustomStep = 0,  -- 0 = ничего, 1 = ждём X, 2 = ждём Y
+    paintCustomX = nil,
     paintHue = 0, paintSaturation = 1, paintValue = 1,
     showCube = false, showSphere = false, showImage = false,
     cubeX = 200, cubeY = 300, sphereX = 400, sphereY = 300,
@@ -128,46 +129,7 @@ State = {
     drawCommands = {}, messages = {}, vars = {}, font = nil, fontSize = 16,
     plugins = {}, clipboard = nil,
     paletteTapBlock = nil, paletteTapTime = 0, paletteMoved = false,
-    paletteCategories = {"event","motion","looks","sound","control","text","sensing","pen"},
-    paletteCategoryScroll = 0,
-    paletteCategoryX = 0,
-    paletteCategoryWidth = 100,
-    scriptScrollY = 0,
-    scriptContentHeight = 0,
-    bgColor = {0.12,0.12,0.12},
-    copiedBlock = nil,
-    templates = {
-        {
-            name = "Пустой проект",
-            scenes = {{ name = "Сцена 1", bgColor = {0.2,0.2,0.4}, objects = {{ name = "Объект 1", x=200, y=200, image = nil, blocks = {} }} }},
-            orientation = "portrait"
-        },
-        {
-            name = "Платформер",
-            scenes = {{ name = "Уровень 1", bgColor = {0.1,0.3,0.1}, objects = {
-                { name = "Персонаж", x=200, y=300, image = nil, blocks = {
-                    {type="event", name="start", label="при старте", category="event"},
-                    {type="action", name="showImage", label="показать спрайт", category="looks"}
-                }},
-                { name = "Земля", x=200, y=400, image = nil, blocks = {} }
-            } }},
-            orientation = "portrait"
-        },
-        {
-            name = "Кликер",
-            scenes = {{ name = "Главная", bgColor = {0.3,0.1,0.1}, objects = {
-                { name = "Кнопка", x=200, y=300, image = nil, blocks = {
-                    {type="event", name="tap", label="при нажатии", category="event"},
-                    {type="action", name="printText", label="вывести текст", param="+1", category="text"}
-                }}
-            } }},
-            orientation = "portrait"
-        }
-    },
-    showTemplates = false,
-    storeProjects = {},
-    showStore = false,
-    storeURL = "https://raw.githubusercontent.com/твой_юзер/pocketcat_store/main/store.json"
+    bgColor = {0.1,0.1,0.1}
 }
 
 json = {}
@@ -214,7 +176,13 @@ function json.decode(str)
 end
 
 function defaultProject()
-    return State.templates[1]
+    return {
+        scenes = {{ name = "Сцена 1", bgColor = {0.2,0.2,0.4}, objects = {{ name = "Объект 1", x=200, y=200, image = nil, blocks = {
+            {type="event", name="start", label="при старте", category="event"},
+            {type="action", name="showCube", label="показать куб", category="looks"}
+        }}} }},
+        orientation = "portrait"
+    }
 end
 function getCurrentScene()
     if not State.project then return nil end
@@ -232,237 +200,15 @@ function updateWorkspaceBlocks()
 end
 
 function calculateHeights()
-    State.scriptContentHeight = 20 + #State.workspaceBlocks * (State.blockHeight + State.blockSpacing) + 100
+    local y = 10
+    local lastCat = nil
+    for _, b in ipairs(State.paletteBlocks) do
+        if b.category ~= lastCat then y = y + 20; lastCat = b.category end
+        y = y + State.blockHeight + 6
+    end
+    State.paletteContentHeight = y
+    State.workspaceContentHeight = State.workspaceStartY + #State.workspaceBlocks * (State.blockHeight + State.blockSpacing) + 100
 end
-
-function drawToolbar()
-    local W, H = love.graphics.getDimensions()
-    local toolbarH = 60
-    love.graphics.setColor(0.15,0.15,0.15)
-    love.graphics.rectangle("fill", 0, 0, W, toolbarH)
-    love.graphics.setColor(0,1,0)
-    love.graphics.circle("fill", 40, 30, 18)
-    love.graphics.setColor(0,0,0)
-    love.graphics.print(">", 33, 22)
-    love.graphics.setColor(1,0,0)
-    love.graphics.rectangle("fill", 70, 15, 30, 30, 5)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("STOP", 72, 22)
-    love.graphics.setColor(0.3,0.5,1)
-    love.graphics.rectangle("fill", 120, 15, 80, 30, 5)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Save", 135, 22)
-    love.graphics.setColor(0.3,0.5,1)
-    love.graphics.rectangle("fill", 210, 15, 80, 30, 5)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Load", 225, 22)
-    love.graphics.setColor(0.8,0.3,0.3)
-    love.graphics.rectangle("fill", 300, 15, 60, 30, 5)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Clear", 310, 22)
-    love.graphics.setColor(0.8,0.5,0.2)
-    love.graphics.rectangle("fill", 370, 15, 60, 30, 5)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Templ", 380, 22)
-    love.graphics.setColor(0.5,0.8,0.3)
-    love.graphics.rectangle("fill", 440, 15, 60, 30, 5)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Store", 450, 22)
-end
-
-function handleToolbarClick(x, y)
-    local W, H = love.graphics.getDimensions()
-    local toolbarH = 60
-    if y < 0 or y > toolbarH then return false end
-    if math.sqrt((x-40)^2 + (y-30)^2) <= 18 then
-        runProject()
-        return true
-    end
-    if x >= 70 and x <= 100 and y >= 15 and y <= 45 then
-        State.stopAll = true
-        return true
-    end
-    if x >= 120 and x <= 200 and y >= 15 and y <= 45 then
-        saveProject("project.cat")
-        return true
-    end
-    if x >= 210 and x <= 290 and y >= 15 and y <= 45 then
-        local saved = loadProject("project.cat")
-        if saved then State.project = saved; updateWorkspaceBlocks() end
-        return true
-    end
-    if x >= 300 and x <= 360 and y >= 15 and y <= 45 then
-        local scene = getCurrentScene()
-        if scene then
-            scene.objects = {{ name = "Объект 1", x=200, y=200, image = nil, blocks = {} }}
-        end
-        State.currentObjectIdx = 1
-        updateWorkspaceBlocks()
-        return true
-    end
-    if x >= 370 and x <= 430 and y >= 15 and y <= 45 then
-        State.showTemplates = true
-        return true
-    end
-    if x >= 440 and x <= 500 and y >= 15 and y <= 45 then
-        loadStore()
-        State.showStore = true
-        return true
-    end
-    return false
-end
-
-function drawScene()
-    local W, H = love.graphics.getDimensions()
-    local toolbarH = 60
-    local sceneH = math.floor(H * 0.55)
-    love.graphics.setColor(getCurrentScene() and getCurrentScene().bgColor or {0.2,0.2,0.4})
-    love.graphics.rectangle("fill", 0, toolbarH, W, sceneH)
-    local scene = getCurrentScene()
-    if scene then
-        for i, obj in ipairs(scene.objects) do
-            local x, y = obj.x or 200, obj.y or 200
-            love.graphics.setColor(obj.color or {0.5,0.5,0.5})
-            love.graphics.rectangle("fill", x-20, y-20, 40, 40, 5)
-            love.graphics.setColor(1,1,1)
-            love.graphics.printf(obj.name, x-30, y+25, 60, "center")
-            if i == State.currentObjectIdx then
-                love.graphics.setColor(1,1,0)
-                love.graphics.rectangle("line", x-22, y-22, 44, 44)
-            end
-        end
-    end
-    drawSceneObjects()
-end
-
-function handleSceneClick(x, y)
-    local W, H = love.graphics.getDimensions()
-    local toolbarH = 60
-    local sceneH = math.floor(H * 0.55)
-    if y < toolbarH or y > toolbarH + sceneH then return false end
-    local scene = getCurrentScene()
-    if not scene then return false end
-    for i, obj in ipairs(scene.objects) do
-        local ox, oy = obj.x or 200, obj.y or 200
-        if x >= ox-20 and x <= ox+20 and y >= oy-20 and y <= oy+20 then
-            State.currentObjectIdx = i
-            updateWorkspaceBlocks()
-            return true
-        end
-    end
-    return false
-end
-
-function drawEditorPanel()
-    local W, H = love.graphics.getDimensions()
-    local toolbarH = 60
-    local sceneH = math.floor(H * 0.55)
-    local editorY = toolbarH + sceneH
-    local editorH = H - editorY
-    love.graphics.setColor(0.12,0.12,0.12)
-    love.graphics.rectangle("fill", 0, editorY, W, editorH)
-    local tabW = math.floor(W/2)
-    love.graphics.setColor(State.currentEditorTab == "palette" and {0.3,0.5,0.8} or {0.2,0.2,0.2})
-    love.graphics.rectangle("fill", 0, editorY, tabW, 30)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Палитра", 10, editorY+5)
-    love.graphics.setColor(State.currentEditorTab == "script" and {0.3,0.5,0.8} or {0.2,0.2,0.2})
-    love.graphics.rectangle("fill", tabW, editorY, W-tabW, 30)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Скрипт", tabW+10, editorY+5)
-
-    if State.currentEditorTab == "palette" then
-        drawPalettePanel(0, editorY+30, W, editorH-30)
-    else
-        drawScriptPanel(0, editorY+30, W, editorH-30)
-    end
-end
-
-function drawPalettePanel(x, y, w, h)
-    local catH = 30
-    local cats = State.paletteCategories
-    love.graphics.setScissor(x, y, w, catH)
-    for i, cat in ipairs(cats) do
-        local bx = x + (i-1)*State.paletteCategoryWidth - State.paletteCategoryScroll
-        love.graphics.setColor(0.3,0.3,0.3)
-        love.graphics.rectangle("fill", bx, y, State.paletteCategoryWidth-4, catH)
-        love.graphics.setColor(1,1,1)
-        love.graphics.print(cat, bx+5, y+5)
-    end
-    love.graphics.setScissor()
-
-    local blocksY = y + catH
-    local blocksH = h - catH
-    love.graphics.setScissor(x, blocksY, w, blocksH)
-    local currentCat = State.paletteCategories[1]
-    local by = blocksY - State.scriptScrollY
-    for _, block in ipairs(State.paletteBlocks) do
-        if block.category == currentCat then
-            if by + State.blockHeight > blocksY and by < blocksY + blocksH then
-                drawBlock(block, x+10, by)
-            end
-            by = by + State.blockHeight + State.blockSpacing
-        end
-    end
-    love.graphics.setScissor()
-end
-
-function drawScriptPanel(x, y, w, h)
-    love.graphics.setScissor(x, y, w, h)
-    local by = y + 10 - State.scriptScrollY
-    for i, block in ipairs(State.workspaceBlocks) do
-        if by + State.blockHeight > y and by < y + h then
-            drawBlock(block, x+10, by, false, State.editingBlockIdx == i)
-        end
-        by = by + State.blockHeight + State.blockSpacing
-    end
-    love.graphics.setScissor()
-end
-
-function handleEditorPanelClick(x, y)
-    local W, H = love.graphics.getDimensions()
-    local toolbarH = 60
-    local sceneH = math.floor(H * 0.55)
-    local editorY = toolbarH + sceneH
-    local editorH = H - editorY
-    if y < editorY then return false end
-    if y < editorY + 30 then
-        local tabW = math.floor(W/2)
-        if x < tabW then State.currentEditorTab = "palette" else State.currentEditorTab = "script" end
-        return true
-    end
-    if State.currentEditorTab == "palette" then
-        local currentCat = State.paletteCategories[1]
-        local catH = 30
-        local blocksY = editorY + 30 + catH
-        local blocksH = editorH - 30 - catH
-        local by = blocksY - State.scriptScrollY
-        for _, block in ipairs(State.paletteBlocks) do
-            if block.category == currentCat then
-                if x >= 10 and x <= 10+State.blockWidth and y >= by and y <= by+State.blockHeight then
-                    local nb = { type = block.type, name = block.name, label = block.label, param = block.param, category = block.category }
-                    table.insert(State.workspaceBlocks, nb)
-                    calculateHeights()
-                    return true
-                end
-                by = by + State.blockHeight + State.blockSpacing
-            end
-        end
-    elseif State.currentEditorTab == "script" then
-        local by = editorY + 30 + 10 - State.scriptScrollY
-        for i, block in ipairs(State.workspaceBlocks) do
-            if x >= 10 and x <= 10+State.blockWidth and y >= by and y <= by+State.blockHeight then
-                State.editingBlockIdx = i
-                State.editingText = tostring(block.param or "")
-                State.keyboardVisible = true
-                return true
-            end
-            by = by + State.blockHeight + State.blockSpacing
-        end
-    end
-    return false
-end
-
 function drawBlock(block, x, y, isDragging, highlight)
     local color = State.catColors[block.category] or {0.4,0.4,0.8}
     love.graphics.setColor(0,0,0,0.3)
@@ -482,214 +228,86 @@ function drawBlock(block, x, y, isDragging, highlight)
         love.graphics.rectangle("line", x-1, y-1, State.blockWidth+2, State.blockHeight+2, 12)
     end
 end
-
-function drawTemplates()
-    if not State.showTemplates then return end
-    love.graphics.setColor(0,0,0,0.8)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+function drawPalette()
+    love.graphics.setScissor(0, 0, State.paletteWidth, love.graphics.getHeight())
+    love.graphics.setColor(0.15,0.15,0.15)
+    love.graphics.rectangle("fill", 0, 0, State.paletteWidth, love.graphics.getHeight())
+    local y = 10 - State.paletteScrollY
+    local lastCat = nil
+    for _, b in ipairs(State.paletteBlocks) do
+        if b.category ~= lastCat then love.graphics.setColor(1,1,1); love.graphics.print(b.category, 5, y); y = y + 20; lastCat = b.category end
+        if y + State.blockHeight > 0 and y < love.graphics.getHeight() then drawBlock(b, 5, y) end
+        y = y + State.blockHeight + 6
+    end
+    love.graphics.setScissor()
+end
+function drawWorkspace()
+    love.graphics.setScissor(State.paletteWidth, 0, love.graphics.getWidth()-State.paletteWidth, love.graphics.getHeight())
+    love.graphics.setColor(0.1,0.1,0.1)
+    love.graphics.rectangle("fill", State.paletteWidth, 0, love.graphics.getWidth()-State.paletteWidth, love.graphics.getHeight())
     love.graphics.setColor(1,1,1)
-    love.graphics.print("Выберите шаблон", 10, 10)
-    for i, t in ipairs(State.templates) do
-        local y = 40 + (i-1)*30
-        love.graphics.setColor(0.3,0.3,0.8)
-        love.graphics.rectangle("fill", 10, y, 200, 25)
-        love.graphics.setColor(1,1,1)
-        love.graphics.print(t.name, 20, y+5)
-    end
-end
-
-function handleTemplatesClick(x, y)
-    if not State.showTemplates then return false end
-    for i, t in ipairs(State.templates) do
-        local ty = 40 + (i-1)*30
-        if x >= 10 and x <= 210 and y >= ty and y <= ty+25 then
-            State.project = t
-            State.currentSceneIdx = 1
-            State.currentObjectIdx = 1
-            updateWorkspaceBlocks()
-            State.showTemplates = false
-            return true
+    love.graphics.print("Рабочая область", State.workspaceStartX, 10 - State.workspaceScrollY)
+    for i, b in ipairs(State.workspaceBlocks) do
+        local bx = State.workspaceStartX
+        local by = State.workspaceStartY + (i-1)*(State.blockHeight + State.blockSpacing) - State.workspaceScrollY
+        local highlight = (State.editingBlockIdx == i)
+        if not (State.draggingBlock == b and not State.dragFromPalette) then
+            if by + State.blockHeight > 0 and by < love.graphics.getHeight() then drawBlock(b, bx, by, false, highlight) end
         end
     end
-    State.showTemplates = false
-    return true
-end
-
-function loadStore()
-    State.storeProjects = {}
-    local ok, res = pcall(function()
-        local http = require("socket.http")
-        local body, code = http.request(State.storeURL)
-        if code == 200 then
-            return json.decode(body)
-        end
-        return nil
-    end)
-    if ok and res then
-        State.storeProjects = res
+    if State.draggingBlock then
+        local mx, my = love.mouse.getPosition()
+        drawBlock(State.draggingBlock, mx-State.blockWidth/2, my-State.blockHeight/2, true, false)
     end
+    love.graphics.setScissor()
 end
-
-function drawStore()
-    if not State.showStore then return end
-    love.graphics.setColor(0,0,0,0.8)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+function drawButtons()
+    local rx = love.graphics.getWidth() - 50
+    love.graphics.setColor(0,1,0)
+    love.graphics.circle("fill", rx, 15, 22)
     love.graphics.setColor(1,1,1)
-    love.graphics.print("Магазин проектов", 10, 10)
-    if #State.storeProjects == 0 then
-        love.graphics.print("Нет проектов или нет интернета", 10, 40)
-    else
-        for i, p in ipairs(State.storeProjects) do
-            local y = 40 + (i-1)*40
-            love.graphics.setColor(0.3,0.3,0.8)
-            love.graphics.rectangle("fill", 10, y, 250, 30)
-            love.graphics.setColor(1,1,1)
-            love.graphics.print(p.name, 20, y+5)
-            love.graphics.print("Скачать", 220, y+5)
-        end
-    end
-    love.graphics.setColor(0.8,0.2,0.2)
-    love.graphics.rectangle("fill", 10, 40 + #State.storeProjects*40 + 10, 100, 30)
-    love.graphics.print("Закрыть", 20, 40 + #State.storeProjects*40 + 15)
+    love.graphics.print(">", rx-8, 5, 0, 1.6)
+    local btnY = 50
+    love.graphics.setColor(0.2,0.5,1.0)
+    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
+    love.graphics.print("Сохранить .cat", love.graphics.getWidth()-145, btnY+8)
+    btnY = btnY + 35
+    love.graphics.setColor(0.2,0.5,1.0)
+    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
+    love.graphics.print("Загрузить .cat", love.graphics.getWidth()-145, btnY+8)
+    btnY = btnY + 35
+    love.graphics.setColor(0.7,0.7,0.2)
+    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 68, 25)
+    love.graphics.print("Коп.", love.graphics.getWidth()-145, btnY+5)
+    love.graphics.rectangle("fill", love.graphics.getWidth()-78, btnY, 68, 25)
+    love.graphics.print("Вст.", love.graphics.getWidth()-73, btnY+5)
 end
-
-function handleStoreClick(x, y)
-    if not State.showStore then return false end
-    for i, p in ipairs(State.storeProjects) do
-        local ty = 40 + (i-1)*40
-        if x >= 10 and x <= 260 and y >= ty and y <= ty+30 then
-            if x >= 220 and x <= 260 then
-                local ok, res = pcall(function()
-                    local http = require("socket.http")
-                    local body, code = http.request(p.url)
-                    if code == 200 then
-                        return body
-                    end
-                    return nil
-                end)
-                if ok and res then
-                    love.filesystem.write(p.filename or "downloaded.cat", res)
-                    local saved = loadProject(p.filename or "downloaded.cat")
-                    if saved then State.project = saved; updateWorkspaceBlocks() end
-                end
-                State.showStore = false
-                return true
-            end
-        end
-    end
-    if y >= 40 + #State.storeProjects*40 + 10 and y <= 40 + #State.storeProjects*40 + 40 and x >= 10 and x <= 110 then
-        State.showStore = false
+function checkButtonClick(x, y)
+    local rx = love.graphics.getWidth() - 50
+    if math.sqrt((x-rx)^2 + (y-15)^2) <= 22 then runProject(); return true end
+    local btnY = 50
+    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then saveProject("project.cat"); return true end
+    btnY = btnY + 35
+    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+        local saved = loadProject("project.cat")
+        if saved then State.project = saved; updateWorkspaceBlocks() end
         return true
     end
+    btnY = btnY + 35
+    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-82 and y >= btnY and y <= btnY+25 then copyBlock(); return true end
+    if x >= love.graphics.getWidth()-78 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+25 then pasteBlock(); return true end
     return false
 end
-
-function love.load()
-    State.font = love.graphics.getFont()
-    love.filesystem.createDirectory("sprites")
-    love.filesystem.createDirectory("sounds")
-    local saved = loadProject("project.cat") or loadProject("project.yml")
-    State.project = saved or defaultProject()
-    updateWorkspaceBlocks()
-    initPaint()
-    recalcPaintScale()
-    calculateHeights()
-    State.bgColor = {0.12,0.12,0.12}
-end
-
-function love.draw()
-    drawToolbar()
-    drawScene()
-    drawEditorPanel()
-    if State.editingBlockIdx and not State.paintMode and not State.paintCustomInput then
+function copyBlock()
+    if State.editingBlockIdx then
         local block = State.workspaceBlocks[State.editingBlockIdx]
-        local W = love.graphics.getWidth()
-        love.graphics.setColor(0,0,0,0.7)
-        love.graphics.rectangle("fill", 10, 10, 200, 40, 5)
-        love.graphics.setColor(1,1,1)
-        love.graphics.print("Value: " .. safeUTF8(State.editingText), 20, 20)
-        State.keyboardVisible = true
-    else
-        if not State.paintCustomInput then State.keyboardVisible = false end
-    end
-    drawKeyboard()
-    drawPaint()
-    drawTemplates()
-    drawStore()
+        State.clipboard = { type = block.type, name = block.name, label = block.label, param = block.param, category = block.category }
+        table.insert(State.messages, "Блок скопирован")
+    else table.insert(State.messages, "Выделите блок") end
 end
-
-function love.update(dt)
-    local maxScriptScroll = math.max(0, State.scriptContentHeight - (love.graphics.getHeight() - 60 - math.floor(love.graphics.getHeight()*0.55) - 30))
-    State.scriptScrollY = math.max(0, math.min(State.scriptScrollY, maxScriptScroll))
-    if State.waitTimer > 0 then State.waitTimer = State.waitTimer - dt; if State.waitTimer <= 0 then State.waitTimer = 0 end end
-    if State.longPressBlockIdx and not State.longPressMoved then
-        if love.timer.getTime() - State.longPressStartTime > 0.5 then
-            table.remove(State.workspaceBlocks, State.longPressBlockIdx)
-            if State.editingBlockIdx == State.longPressBlockIdx then State.editingBlockIdx = nil; State.editingText = ""; State.keyboardVisible = false end
-            State.longPressBlockIdx = nil
-            calculateHeights()
-        end
-    end
-end
-
-function love.mousepressed(x, y, button)
-    if State.paintMode then if handlePaintTouch(x, y, true) then return end end
-    if State.keyboardVisible and handleKeyboardTouch(x, y) then return end
-    if State.showTemplates then if handleTemplatesClick(x, y) then return end end
-    if State.showStore then if handleStoreClick(x, y) then return end end
-    if handleToolbarClick(x, y) then return end
-    if handleSceneClick(x, y) then return end
-    if handleEditorPanelClick(x, y) then return end
-end
-
-function love.mousereleased(x, y, button)
-end
-
-function love.touchmoved(id, x, y, dx, dy)
-    if State.paintMode then handlePaintTouch(x, y, true); return end
-    if State.currentEditorTab == "script" then
-        State.scriptScrollY = State.scriptScrollY - dy
-    end
-end
-
-function love.touchpressed(id, x, y) love.mousepressed(x, y, 1) end
-function love.touchreleased(id, x, y) love.mousereleased(x, y, 1) end
-function love.wheelmoved(x, y)
-    State.scriptScrollY = State.scriptScrollY - y * 30
-end
-function love.textinput(t)
-    if State.paintCustomInput and State.keyboardVisible then
-        State.paintCustomInputText = State.paintCustomInputText .. t
-        State.editingText = State.paintCustomInputText
-    elseif State.editingBlockIdx and not State.paintCustomInput then
-        State.editingText = State.editingText .. t
-    end
-end
-function love.keypressed(key)
-    if State.paintCustomInput and State.keyboardVisible then
-        if key == "return" or key == "kpenter" then
-            local w, h = State.paintCustomInputText:match("(%d+)%s*[xX]%s*(%d+)")
-            if w and h then resizePaintCanvas(tonumber(w), tonumber(h)) end
-            State.paintCustomInput = false
-            State.paintCustomInputText = ""
-            State.keyboardVisible = false
-        elseif key == "escape" then
-            State.paintCustomInput = false; State.paintCustomInputText = ""; State.keyboardVisible = false
-        elseif key == "backspace" then
-            State.paintCustomInputText = State.paintCustomInputText:sub(1, -2)
-            State.editingText = State.paintCustomInputText
-        end
-    else
-        if key == "f5" then runProject()
-        elseif key == "f2" then saveProject("project.cat")
-        elseif key == "delete" then
-            if State.editingBlockIdx then
-                table.remove(State.workspaceBlocks, State.editingBlockIdx)
-                State.editingBlockIdx = nil; State.editingText = ""; State.keyboardVisible = false
-                calculateHeights()
-            end
-        end
-    end
+function pasteBlock()
+    if State.clipboard then table.insert(State.workspaceBlocks, State.clipboard); calculateHeights(); table.insert(State.messages, "Блок вставлен")
+    else table.insert(State.messages, "Буфер пуст") end
 end
 
 function compileScript()
@@ -856,6 +474,83 @@ function handleKeyboardTouch(x, y)
     return false
 end
 
+function drawTabs()
+    love.graphics.setColor(0.1,0.1,0.1)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), 70)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Scenes:", 5, 5)
+    local sx = 70
+    for i, sc in ipairs(State.project.scenes) do
+        local w = love.graphics.getFont():getWidth(sc.name) + 15
+        love.graphics.setColor(State.currentSceneIdx == i and {0.4,0.7,1} or {0.3,0.3,0.3})
+        love.graphics.rectangle("fill", sx, 5, w, 25)
+        love.graphics.setColor(1,1,1)
+        love.graphics.print(sc.name, sx+5, 10)
+        sx = sx + w + 5
+    end
+    love.graphics.setColor(0.3,0.7,0.3)
+    love.graphics.rectangle("fill", sx, 5, 25, 25)
+    love.graphics.print("+", sx+5, 8)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Objects:", 5, 35)
+    local ox = 70
+    local scene = getCurrentScene()
+    if scene then
+        for i, obj in ipairs(scene.objects) do
+            local w = love.graphics.getFont():getWidth(obj.name) + 15
+            love.graphics.setColor(State.currentObjectIdx == i and {0.9,0.9,0.2} or {0.3,0.3,0.3})
+            love.graphics.rectangle("fill", ox, 35, w, 25)
+            love.graphics.setColor(1,1,1)
+            love.graphics.print(obj.name, ox+5, 40)
+            love.graphics.setColor(0.8,0.6,0.2)
+            love.graphics.rectangle("fill", ox+w+5, 35, 25, 25)
+            love.graphics.print("P", ox+w+7, 38)
+            love.graphics.setColor(0.4,0.5,1.0)
+            love.graphics.rectangle("fill", ox+w+35, 35, 25, 25)
+            love.graphics.print("F", ox+w+37, 38)
+            ox = ox + w + 65
+        end
+        love.graphics.setColor(0.3,0.7,0.3)
+        love.graphics.rectangle("fill", ox, 35, 25, 25)
+        love.graphics.print("+", ox+5, 38)
+    end
+end
+function handleTabsClick(x, y)
+    if y >= 5 and y <= 30 then
+        local sx = 70
+        for i, sc in ipairs(State.project.scenes) do
+            local w = love.graphics.getFont():getWidth(sc.name) + 15
+            if x >= sx and x <= sx+w then State.currentSceneIdx = i; State.currentObjectIdx = 1; updateWorkspaceBlocks(); return true end
+            sx = sx + w + 5
+        end
+        if x >= sx and x <= sx+25 then addScene(); return true end
+    elseif y >= 35 and y <= 60 then
+        local ox = 70
+        local scene = getCurrentScene()
+        if scene then
+            for i, obj in ipairs(scene.objects) do
+                local w = love.graphics.getFont():getWidth(obj.name) + 15
+                if x >= ox and x <= ox+w then State.currentObjectIdx = i; updateWorkspaceBlocks(); return true end
+                if x >= ox+w+5 and x <= ox+w+30 then State.paintMode = true; return true end
+                if x >= ox+w+35 and x <= ox+w+60 then openFilePicker(); return true end
+                ox = ox + w + 65
+            end
+            if x >= ox and x <= ox+25 then addObject(); return true end
+        end
+    end
+    return false
+end
+function addScene()
+    table.insert(State.project.scenes, { name = "Сцена " .. #State.project.scenes+1, bgColor = {0.2,0.2,0.4}, objects = {{ name = "Объект 1", image = nil, blocks = {} }} })
+    State.currentSceneIdx = #State.project.scenes; State.currentObjectIdx = 1; updateWorkspaceBlocks()
+end
+function addObject()
+    local scene = getCurrentScene()
+    if not scene then return end
+    table.insert(scene.objects, { name = "Объект " .. #scene.objects+1, image = nil, blocks = {} })
+    State.currentObjectIdx = #scene.objects; updateWorkspaceBlocks()
+end
+
 function openFilePicker()
     if love.system.getOS() == "Android" then
         love.system.openURL("intent://#Intent;action=android.intent.action.GET_CONTENT;type=image/*,audio/*;end")
@@ -944,11 +639,15 @@ function drawPaint()
     love.graphics.rectangle("fill", px, customY, 120, 26, 5)
     love.graphics.setColor(1,1,1)
     love.graphics.print("Custom...", px+10, customY+5)
-    if State.paintCustomInput then
+    if State.paintCustomStep > 0 then
         love.graphics.setColor(0.2,0.2,0.2)
         love.graphics.rectangle("fill", px, customY+32, 120, 26)
         love.graphics.setColor(1,1,1)
-        love.graphics.print(State.paintCustomInputText, px+5, customY+37)
+        if State.paintCustomStep == 1 then
+            love.graphics.print("X: " .. State.paintCustomInputText, px+5, customY+37)
+        else
+            love.graphics.print("Y: " .. State.paintCustomInputText, px+5, customY+37)
+        end
     end
     love.graphics.setColor(1,1,1)
     love.graphics.print("Custom Color:", px, customY+70)
@@ -998,8 +697,8 @@ function handlePaintTouch(x, y, isDown)
     local pw = State.paintWidth * State.paintScale
     local ph = State.paintHeight * State.paintScale
     local px = cx + pw + 30
-    local hsvY = 430 + 60 + 32 + 60 + 10
-    if y > hsvY+80 and y < hsvY+110 and x > px and x < px+120 then
+    local customY = 430 + 60 + 32 + 60 + 10  -- customY = 592 примерно
+    if y > 550 and y < 590 and x > px and x < px+120 then
         love.graphics.setCanvas()
         local obj = getCurrentObject()
         if obj then
@@ -1008,11 +707,11 @@ function handlePaintTouch(x, y, isDown)
             imgData:encode("png", filename)
             obj.image = filename
         end
-        State.paintMode = false; State.paintCustomInput = false; return true
+        State.paintMode = false; State.paintCustomStep = 0; State.paintCustomInputText = ""; return true
     end
-    if y > hsvY+120 and y < hsvY+150 and x > px and x < px+120 then
+    if y > 590 and y < 630 and x > px and x < px+120 then
         love.graphics.setCanvas()
-        State.paintMode = false; State.paintCustomInput = false; return true
+        State.paintMode = false; State.paintCustomStep = 0; State.paintCustomInputText = ""; return true
     end
     for i, tool in ipairs(State.paintTools) do
         local ty = 90 + (i-1)*32
@@ -1039,23 +738,26 @@ function handlePaintTouch(x, y, isDown)
         local sy = py + math.floor((i-1)/3) * 30
         if x > sx and x < sx+50 and y > sy and y < sy+24 then
             resizePaintCanvas(psz[1], psz[2])
-            State.paintCustomInput = false
+            State.paintCustomStep = 0; State.paintCustomInputText = ""
             return true
         end
     end
-    local customY = py + 60
-    if x > px and x < px+120 and y > customY and y < customY+26 then
-        State.paintCustomInput = true
+    local customBtnY = py + 60
+    if x > px and x < px+120 and y > customBtnY and y < customBtnY+26 then
+        State.paintCustomStep = 1
         State.paintCustomInputText = ""
+        State.editingBlockIdx = nil
+        State.editingText = ""
+        State.keyboardVisible = true
         return true
     end
-    if State.paintCustomInput and x > px and x < px+120 and y > customY+32 and y < customY+58 then
+    if State.paintCustomStep > 0 and x > px and x < px+120 and y > customBtnY+32 and y < customBtnY+58 then
         State.editingBlockIdx = nil
         State.editingText = State.paintCustomInputText
         State.keyboardVisible = true
         return true
     end
-    local hsvX, hsvY2 = px, customY+90
+    local hsvX, hsvY2 = px, customBtnY+90
     local hsvSize = 60
     if x >= hsvX and x <= hsvX+hsvSize and y >= hsvY2 and y <= hsvY2+hsvSize then
         State.paintHue = (x - hsvX) / hsvSize
@@ -1249,5 +951,206 @@ function drawSceneObjects()
         love.graphics.setColor(State.objectColor)
         love.graphics.setLineWidth(2)
         love.graphics.circle("line", State.sphereX, State.sphereY, State.objectSize, 24)
+    end
+end
+
+function love.load()
+    State.font = love.graphics.getFont()
+    love.filesystem.createDirectory("sprites")
+    love.filesystem.createDirectory("sounds")
+    local saved = loadProject("project.cat") or loadProject("project.yml")
+    State.project = saved or defaultProject()
+    updateWorkspaceBlocks()
+    initPaint()
+    recalcPaintScale()
+    calculateHeights()
+    State.bgColor = {0.1,0.1,0.1}
+end
+
+function love.draw()
+    local bg = getCurrentScene() and getCurrentScene().bgColor or {0.1,0.1,0.1}
+    love.graphics.setBackgroundColor(bg)
+    drawPalette()
+    drawWorkspace()
+    drawTabs()
+    if State.editingBlockIdx and not State.paintMode and not State.paintCustomStep then
+        local block = State.workspaceBlocks[State.editingBlockIdx]
+        love.graphics.setColor(0,0,0,0.7)
+        love.graphics.rectangle("fill", 10, 10, 200, 40, 5)
+        love.graphics.setColor(1,1,1)
+        love.graphics.print("Value: " .. safeUTF8(State.editingText), 20, 20)
+        State.keyboardVisible = true
+    elseif State.paintCustomStep > 0 then
+        love.graphics.setColor(0,0,0,0.7)
+        love.graphics.rectangle("fill", 10, 10, 200, 40, 5)
+        love.graphics.setColor(1,1,1)
+        if State.paintCustomStep == 1 then
+            love.graphics.print("Enter X size:", 20, 20)
+        else
+            love.graphics.print("Enter Y size:", 20, 20)
+        end
+        State.keyboardVisible = true
+    else
+        if not State.paintCustomInput then State.keyboardVisible = false end
+    end
+    drawKeyboard()
+    drawPaint()
+    drawButtons()
+    drawSceneObjects()
+    love.graphics.setFont(State.font)
+    local msgY = State.workspaceStartY + #State.workspaceBlocks*(State.blockHeight+State.blockSpacing) + 20 - State.workspaceScrollY
+    for _, msg in ipairs(State.messages) do
+        if msgY > 0 and msgY < love.graphics.getHeight() then
+            love.graphics.setColor(1,1,1)
+            love.graphics.print(safeUTF8(msg), State.workspaceStartX, msgY)
+        end
+        msgY = msgY + State.fontSize + 4
+    end
+end
+
+function love.update(dt)
+    local maxPal = math.max(0, State.paletteContentHeight - love.graphics.getHeight())
+    State.paletteScrollY = math.max(0, math.min(State.paletteScrollY, maxPal))
+    local maxWs = math.max(0, State.workspaceContentHeight - love.graphics.getHeight())
+    State.workspaceScrollY = math.max(0, math.min(State.workspaceScrollY, maxWs))
+    if State.waitTimer > 0 then State.waitTimer = State.waitTimer - dt; if State.waitTimer <= 0 then State.waitTimer = 0 end end
+    if State.longPressBlockIdx and not State.longPressMoved then
+        if love.timer.getTime() - State.longPressStartTime > 0.5 then
+            table.remove(State.workspaceBlocks, State.longPressBlockIdx)
+            if State.editingBlockIdx == State.longPressBlockIdx then State.editingBlockIdx = nil; State.editingText = ""; State.keyboardVisible = false end
+            State.longPressBlockIdx = nil
+            calculateHeights()
+        end
+    end
+end
+
+function love.mousepressed(x, y, button)
+    if State.paintMode then if handlePaintTouch(x, y, true) then return end end
+    if State.keyboardVisible and handleKeyboardTouch(x, y) then return end
+    if checkButtonClick(x, y) then return end
+    if y <= 60 and handleTabsClick(x, y) then return end
+    if x <= State.paletteWidth then
+        local yPal = 10 - State.paletteScrollY
+        local lastCat = nil
+        for _, b in ipairs(State.paletteBlocks) do
+            if b.category ~= lastCat then yPal = yPal + 20; lastCat = b.category end
+            if x >= 5 and x <= 5+State.blockWidth and y >= yPal and y <= yPal+State.blockHeight then
+                State.paletteTapBlock = b; State.paletteTapTime = love.timer.getTime(); State.paletteMoved = false; return
+            end
+            yPal = yPal + State.blockHeight + 6
+        end
+        State.touchActive = true; return
+    end
+    for i, b in ipairs(State.workspaceBlocks) do
+        local bx = State.workspaceStartX
+        local by = State.workspaceStartY + (i-1)*(State.blockHeight + State.blockSpacing) - State.workspaceScrollY
+        if x >= bx and x <= bx+State.blockWidth and y >= by and y <= by+State.blockHeight then
+            State.longPressBlockIdx = i; State.longPressStartTime = love.timer.getTime(); State.longPressMoved = false; return
+        end
+    end
+    State.isTapped = true; State.touchActive = true
+end
+
+function love.mousereleased(x, y, button)
+    if State.paintMode then return end
+    if State.paletteTapBlock and not State.paletteMoved then
+        local elapsed = love.timer.getTime() - State.paletteTapTime
+        if elapsed < 0.4 then
+            local nb = { type = State.paletteTapBlock.type, name = State.paletteTapBlock.name, label = State.paletteTapBlock.label, param = State.paletteTapBlock.param, category = State.paletteTapBlock.category }
+            table.insert(State.workspaceBlocks, nb)
+            calculateHeights()
+        end
+        State.paletteTapBlock = nil; return
+    end
+    State.paletteTapBlock = nil
+    if State.longPressBlockIdx and not State.longPressMoved then
+        local elapsed = love.timer.getTime() - State.longPressStartTime
+        if elapsed < 0.5 then
+            State.editingBlockIdx = State.longPressBlockIdx
+            State.editingText = tostring(State.workspaceBlocks[State.longPressBlockIdx].param or "")
+            State.keyboardVisible = true
+        end
+        State.longPressBlockIdx = nil
+    end
+    State.isReleased = true; State.touchActive = false
+end
+
+function love.touchmoved(id, x, y, dx, dy)
+    if State.paintMode then handlePaintTouch(x, y, true); return end
+    if State.paletteTapBlock then
+        if math.abs(dx) > 3 or math.abs(dy) > 3 then State.paletteMoved = true end
+    end
+    if State.longPressBlockIdx then
+        if math.abs(dx) > 5 or math.abs(dy) > 5 then
+            State.longPressMoved = true
+            State.draggingBlock = State.workspaceBlocks[State.longPressBlockIdx]
+            table.remove(State.workspaceBlocks, State.longPressBlockIdx)
+            State.longPressBlockIdx = nil
+        end
+    elseif x <= State.paletteWidth then State.paletteScrollY = State.paletteScrollY - dy
+    else State.workspaceScrollY = State.workspaceScrollY - dy end
+end
+function love.touchpressed(id, x, y) love.mousepressed(x, y, 1) end
+function love.touchreleased(id, x, y) love.mousereleased(x, y, 1) end
+function love.wheelmoved(x, y)
+    if x <= State.paletteWidth then State.paletteScrollY = State.paletteScrollY - y * 30
+    else State.workspaceScrollY = State.workspaceScrollY - y * 30 end
+end
+function love.textinput(t)
+    if State.paintCustomStep > 0 and State.keyboardVisible then
+        State.paintCustomInputText = State.paintCustomInputText .. t
+        State.editingText = State.paintCustomInputText
+    elseif State.editingBlockIdx and not State.paintCustomStep then
+        State.editingText = State.editingText .. t
+    end
+end
+function love.keypressed(key)
+    if State.paintCustomStep > 0 and State.keyboardVisible then
+        if key == "return" or key == "kpenter" then
+            if State.paintCustomStep == 1 then
+                local val = tonumber(State.paintCustomInputText)
+                if val then
+                    State.paintCustomX = val
+                    State.paintCustomStep = 2
+                    State.paintCustomInputText = ""
+                    State.editingText = ""
+                end
+            else
+                local val = tonumber(State.paintCustomInputText)
+                if val and State.paintCustomX then
+                    resizePaintCanvas(State.paintCustomX, val)
+                    State.paintCustomStep = 0
+                    State.paintCustomInputText = ""
+                    State.editingText = ""
+                    State.keyboardVisible = false
+                end
+            end
+        elseif key == "escape" then
+            State.paintCustomStep = 0; State.paintCustomInputText = ""; State.editingText = ""; State.keyboardVisible = false
+        elseif key == "backspace" then
+            State.paintCustomInputText = State.paintCustomInputText:sub(1, -2)
+            State.editingText = State.paintCustomInputText
+        end
+    elseif State.editingBlockIdx and not State.paintCustomStep then
+        if key == "return" or key == "kpenter" then
+            local block = State.workspaceBlocks[State.editingBlockIdx]
+            local val = safeUTF8(State.editingText)
+            if tonumber(val) then block.param = tonumber(val) else block.param = val end
+            State.editingBlockIdx = nil; State.editingText = ""; State.keyboardVisible = false
+        elseif key == "escape" then
+            State.editingBlockIdx = nil; State.editingText = ""; State.keyboardVisible = false
+        elseif key == "backspace" then
+            State.editingText = State.editingText:sub(1, -2)
+        end
+    else
+        if key == "f5" then runProject()
+        elseif key == "f2" then saveProject("project.cat")
+        elseif key == "delete" then
+            if State.editingBlockIdx then
+                table.remove(State.workspaceBlocks, State.editingBlockIdx)
+                State.editingBlockIdx = nil; State.editingText = ""; State.keyboardVisible = false
+                calculateHeights()
+            end
+        end
     end
 end
