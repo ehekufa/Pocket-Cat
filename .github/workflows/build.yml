@@ -25,19 +25,18 @@ jobs:
           api-level: 33
           build-tools: 33.0.0
 
-      - name: Установить NDK 23.1.7779620
+      - name: Установить NDK 27.1.12297006
         run: |
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;23.1.7779620"
-          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "cmake;3.22.1"
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;27.1.12297006"
 
       - name: Клонировать love-android шаблон
         run: git clone https://github.com/love2d/love-android.git --depth 1
 
       - name: Настроить local.properties
         run: |
-          echo "ndk.dir=$ANDROID_SDK_ROOT/ndk/23.1.7779620" > love-android/local.properties
+          echo "ndk.dir=$ANDROID_SDK_ROOT/ndk/27.1.12297006" > love-android/local.properties
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> love-android/local.properties
-          echo "cmake.dir=$ANDROID_SDK_ROOT/cmake/3.22.1" >> love-android/local.properties
+          # cmake не прописываем – используется встроенный из SDK
 
       - name: Собрать .love и подготовить assets
         run: |
