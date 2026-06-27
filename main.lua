@@ -496,8 +496,7 @@ function handleTabsClick(x, y)
         if scene then
             for i, obj in ipairs(scene.objects) do
                 local w = love.graphics.getFont():getWidth(obj.name) + 15
-                if x >= ox and x <= ox+w then State.currentObjectIdx = i; updateWorkspaceBlocks(); return true end
-                if x >= ox+w+5 and x <= ox+w+30 then State.paintMode = true; return true end
+                if x >= ox and x <= ox+w then State.currentObjectIdx = i; updateWorkspaceBlocks(); return true end                if x >= ox+w+5 and x <= ox+w+30 then State.paintMode = true; return true end
                 if x >= ox+w+35 and x <= ox+w+60 then openFilePicker(); return true end
                 ox = ox + w + 65
             end
@@ -588,6 +587,7 @@ function handlePaintTouch(x, y, isDown)
     if not State.paintMode then return false end
     local px = 20 + State.paintSize*State.paintScale + 30
     if y > 450 and y < 490 and x > px and x < px+120 then
+        love.graphics.setCanvas()
         local obj = getCurrentObject()
         if obj then
             local imgData = State.paintCanvas:newImageData()
@@ -598,6 +598,7 @@ function handlePaintTouch(x, y, isDown)
         State.paintMode = false; return true
     end
     if y > 490 and y < 530 and x > px and x < px+120 then
+        love.graphics.setCanvas()
         State.paintMode = false; return true
     end
     for i, tool in ipairs(State.paintTools) do
@@ -640,12 +641,14 @@ function handlePaintTouch(x, y, isDown)
                 love.graphics.setColor(0,0,0,0)
                 love.graphics.rectangle("fill", px2-1, py2-1, State.paintSize, State.paintSize)
             elseif State.paintCurrentTool == "picker" then
+                love.graphics.setCanvas()
                 local imgData = State.paintCanvas:newImageData()
                 local r,g,b,a = imgData:getPixel(px2-1, py2-1)
                 State.paintBrushColor = {r,g,b}
                 State.paintCurrentTool = "brush"
+            else
+                love.graphics.setCanvas()
             end
-            love.graphics.setCanvas()
             return true
         end
     end
