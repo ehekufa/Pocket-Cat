@@ -1,5 +1,4 @@
--- Pocket Cat 2.0 Final – всё в одном файле
--- Сцены, объекты, Paint, кастомная клавиатура, Firebase, .cat, копирование/вставка
+-- Pocket Cat 2.0 Final – Полный скрипт с кнопкой вставки URL Firebase, импортом, .cat
 
 -- ======================== ГЛОБАЛЬНОЕ СОСТОЯНИЕ ========================
 State = {
@@ -20,32 +19,26 @@ State = {
         firebase = {1.0, 0.7, 0.0},
     },
     paletteBlocks = {
-        -- События
         {type="event", name="start",   label="при старте",           category="event"},
         {type="event", name="tap",     label="при нажатии",          category="event"},
         {type="event", name="release", label="при отпускании",       category="event"},
         {type="event", name="touch",   label="при касании",          category="event"},
-        -- Движение
         {type="action", name="changeX",label="изменить X на",        param=10, category="motion"},
         {type="action", name="changeY",label="изменить Y на",        param=10, category="motion"},
         {type="action", name="setX",   label="установить X в",       param=200, category="motion"},
         {type="action", name="setY",   label="установить Y в",       param=200, category="motion"},
         {type="action", name="turn",   label="повернуть на",         param=15, category="motion"},
-        -- Внешность
         {type="action", name="showCube",   label="показать куб",      category="looks"},
         {type="action", name="showSphere", label="показать сферу",    category="looks"},
         {type="action", name="hide",   label="скрыть объект",         category="looks"},
         {type="action", name="show",   label="показать объект",       category="looks"},
         {type="action", name="setColor",   label="установить цвет",  param="green", category="looks"},
         {type="action", name="setSize",    label="установить размер", param=50, category="looks"},
-        -- Управление
         {type="action", name="wait",   label="ждать",                 param=1, category="control"},
         {type="action", name="repeat", label="повторить 3 раза",      param=3, category="control"},
         {type="action", name="ifTap",  label="если нажато",           category="control"},
         {type="action", name="stopAll",label="остановить всё",        category="control"},
-        -- Текст
         {type="action", name="printText",label="вывести текст",       param="Привет!", category="text"},
-        -- Firebase
         {type="action", name="fb_set",    label="сохранить в FB",    param="key:value", category="firebase"},
         {type="action", name="fb_get",    label="прочитать из FB",   param="key",       category="firebase"},
         {type="action", name="fb_delete", label="удалить из FB",     param="key",       category="firebase"},
@@ -120,7 +113,14 @@ State = {
     fontSize = 16,
 
     plugins = {},
-    clipboard = nil,   -- буфер обмена для блоков
+    clipboard = nil,
+
+    importList = {},
+    showImport = false,
+
+    paletteTapBlock = nil,
+    paletteTapTime = 0,
+    paletteMoved = false,
 }
 
 -- ======================== JSON ========================
@@ -343,14 +343,19 @@ function drawButtons()
     love.graphics.print("☁ Загрузить (.cat)", love.graphics.getWidth() - 145, btnY+8)
 
     btnY = btnY + 35
-    -- Копировать
+    -- Копировать и Вставить
     love.graphics.setColor(0.7, 0.7, 0.2)
     love.graphics.rectangle("fill", love.graphics.getWidth() - 150, btnY, 68, 25)
     love.graphics.print("📋 Коп.", love.graphics.getWidth() - 145, btnY+5)
-    -- Вставить
     love.graphics.setColor(0.7, 0.7, 0.2)
     love.graphics.rectangle("fill", love.graphics.getWidth() - 78, btnY, 68, 25)
     love.graphics.print("📌 Вст.", love.graphics.getWidth() - 73, btnY+5)
+
+    btnY = btnY + 30
+    -- Вставить URL Firebase
+    love.graphics.setColor(0.9, 0.5, 0.2)
+    love.graphics.rectangle("fill", love.graphics.getWidth() - 150, btnY, 140, 25)
+    love.graphics.print("📎 Вставить URL", love.graphics.getWidth() - 145, btnY+5)
 end
 
 function checkButtonClick(x, y)
@@ -389,6 +394,19 @@ function checkButtonClick(x, y)
     -- Вставить
     if x >= love.graphics.getWidth() - 78 and x <= love.graphics.getWidth() - 10 and y >= btnY and y <= btnY+25 then
         pasteBlock()
+        return true
+    end
+    btnY = btnY + 30
+    -- Вставить URL Firebase
+    if x >= love.graphics.getWidth() - 150 and x <= love.graphics.getWidth() - 10 and y >= btnY and y <= btnY+25 then
+        local clip = love.system.getClipboardText()
+        if clip and clip:match("^https?://") then
+            Firebase.baseURL = clip
+            table.insert(State.messages, "✅ URL установлен: " .. clip)
+            love.filesystem.write("firebase_url.txt", clip)
+        else
+            table.insert(State.messages, "❌ Скопируй ссылку на Firebase")
+        end
         return true
     end
     return false
@@ -641,11 +659,15 @@ function drawTabs()
             love.graphics.rectangle("fill", ox, 35, w, 25)
             love.graphics.setColor(1,1,1)
             love.graphics.print(obj.name, ox+5, 40)
-            -- кнопка Paint
+            -- Paint
             love.graphics.setColor(0.8, 0.6, 0.2)
             love.graphics.rectangle("fill", ox + w + 5, 35, 25, 25)
             love.graphics.print("🎨", ox + w + 7, 38)
-            ox = ox + w + 30
+            -- Импорт
+            love.graphics.setColor(0.4, 0.5, 1.0)
+            love.graphics.rectangle("fill", ox + w + 35, 35, 25, 25)
+            love.graphics.print("📁", ox + w + 37, 38)
+            ox = ox + w + 65
         end
         love.graphics.setColor(0.3,0.7,0.3)
         love.graphics.rectangle("fill", ox, 35, 25, 25)
@@ -677,7 +699,12 @@ function handleTabsClick(x, y)
                 if x >= ox + w + 5 and x <= ox + w + 30 then
                     State.paintMode = true; return true
                 end
-                ox = ox + w + 30
+                if x >= ox + w + 35 and x <= ox + w + 60 then
+                    scanSprites()
+                    State.showImport = true
+                    return true
+                end
+                ox = ox + w + 65
             end
             if x >= ox and x <= ox+25 then addObject(); return true end
         end
@@ -842,6 +869,55 @@ function loadProject(filename)
     return project
 end
 
+-- ======================== ИМПОРТ СПРАЙТОВ ========================
+function scanSprites()
+    local files = love.filesystem.getDirectoryItems("sprites")
+    State.importList = {}
+    for _, f in ipairs(files) do
+        if f:match("%.png$") then
+            table.insert(State.importList, f)
+        end
+    end
+end
+
+function drawImportWindow()
+    if not State.showImport then return end
+    love.graphics.setColor(0,0,0,0.8)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Выберите спрайт (папка sprites/)", 10, 10)
+    for i, name in ipairs(State.importList) do
+        local y = 40 + (i-1)*30
+        love.graphics.setColor(0.3,0.3,0.8)
+        love.graphics.rectangle("fill", 10, y, 200, 25)
+        love.graphics.setColor(1,1,1)
+        love.graphics.print(name, 15, y+5)
+    end
+    love.graphics.setColor(0.8,0.2,0.2)
+    love.graphics.rectangle("fill", 10, 40 + #State.importList*30 + 10, 100, 30)
+    love.graphics.print("Закрыть", 20, 40 + #State.importList*30 + 15)
+end
+
+function handleImportClick(x, y)
+    if not State.showImport then return false end
+    if y >= 40 + #State.importList*30 + 10 and y <= 40 + #State.importList*30 + 40 and x >= 10 and x <= 110 then
+        State.showImport = false
+        return true
+    end
+    for i, name in ipairs(State.importList) do
+        local by = 40 + (i-1)*30
+        if x >= 10 and x <= 210 and y >= by and y <= by+25 then
+            local obj = getCurrentObject()
+            if obj then
+                obj.image = "sprites/" .. name
+            end
+            State.showImport = false
+            return true
+        end
+    end
+    return false
+end
+
 -- ======================== ОТРИСОВКА СЦЕНЫ ========================
 function drawSceneObjects()
     if State.showCube then
@@ -869,6 +945,9 @@ end
 -- ======================== ОСНОВНЫЕ КОЛЛБЭКИ ========================
 function love.load()
     State.font = love.graphics.getFont()
+    love.filesystem.createDirectory("sprites")
+    local savedURL = love.filesystem.read("firebase_url.txt")
+    if savedURL then Firebase.baseURL = savedURL end
     local saved = loadProject("project.cat") or loadProject("project.yml")
     State.project = saved or defaultProject()
     updateWorkspaceBlocks()
@@ -896,6 +975,7 @@ function love.draw()
     drawPaint()
     drawButtons()
     drawSceneObjects()
+    drawImportWindow()
     love.graphics.setFont(State.font)
     local msgY = State.workspaceStartY + #State.workspaceBlocks*(State.blockHeight+State.blockSpacing) + 20 - State.workspaceScrollY
     for _, msg in ipairs(State.messages) do
@@ -934,6 +1014,9 @@ function love.mousepressed(x, y, button)
     if State.paintMode then
         if handlePaintTouch(x, y, true) then return end
     end
+    if State.showImport then
+        if handleImportClick(x, y) then return end
+    end
     if State.keyboardVisible and handleKeyboardTouch(x, y) then return end
     if checkButtonClick(x, y) then return end
     if y <= 60 and handleTabsClick(x, y) then return end
@@ -946,9 +1029,9 @@ function love.mousepressed(x, y, button)
                 lastCat = b.category
             end
             if x >= 5 and x <= 5+State.blockWidth and y >= yPal and y <= yPal+State.blockHeight then
-                local nb = {type=b.type, name=b.name, label=b.label, param=b.param, category=b.category}
-                table.insert(State.workspaceBlocks, nb)
-                calculateHeights()
+                State.paletteTapBlock = b
+                State.paletteTapTime = love.timer.getTime()
+                State.paletteMoved = false
                 return
             end
             yPal = yPal + State.blockHeight + 6
@@ -972,6 +1055,24 @@ end
 
 function love.mousereleased(x, y, button)
     if State.paintMode then return end
+    if State.showImport then return end
+    if State.paletteTapBlock and not State.paletteMoved then
+        local elapsed = love.timer.getTime() - State.paletteTapTime
+        if elapsed < 0.4 then
+            local nb = {
+                type = State.paletteTapBlock.type,
+                name = State.paletteTapBlock.name,
+                label = State.paletteTapBlock.label,
+                param = State.paletteTapBlock.param,
+                category = State.paletteTapBlock.category,
+            }
+            table.insert(State.workspaceBlocks, nb)
+            calculateHeights()
+        end
+        State.paletteTapBlock = nil
+        return
+    end
+    State.paletteTapBlock = nil
     if State.longPressBlockIdx and not State.longPressMoved then
         local elapsed = love.timer.getTime() - State.longPressStartTime
         if elapsed < 0.5 then
@@ -989,6 +1090,11 @@ function love.touchmoved(id, x, y, dx, dy)
     if State.paintMode then
         handlePaintTouch(x, y, true)
         return
+    end
+    if State.paletteTapBlock then
+        if math.abs(dx) > 3 or math.abs(dy) > 3 then
+            State.paletteMoved = true
+        end
     end
     if State.longPressBlockIdx then
         if math.abs(dx) > 5 or math.abs(dy) > 5 then
@@ -1013,23 +1119,12 @@ function love.wheelmoved(x, y)
         State.workspaceScrollY = State.workspaceScrollY - y * 30
     end
 end
-
-function love.textinput(t)
-    if State.keyboardVisible then return end
-    if State.editingBlockIdx then
-        State.editingText = State.editingText .. t
-    end
-end
-
+function love.textinput(t) end
 function love.keypressed(key)
     local ctrl = love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")
-    if ctrl and key == "c" then
-        copyBlock()
-    elseif ctrl and key == "v" then
-        pasteBlock()
-    elseif key == "f5" then
-        runProject()
-    elseif key == "f2" then
-        saveProject("project.cat")
+    if ctrl and key == "c" then copyBlock()
+    elseif ctrl and key == "v" then pasteBlock()
+    elseif key == "f5" then runProject()
+    elseif key == "f2" then saveProject("project.cat")
     end
 end
