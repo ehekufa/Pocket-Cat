@@ -1,9 +1,9 @@
-name: Build PocketCat APK from YAML
+name: Build PocketCat APK
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:   # позволяет запускать вручную
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout репозиторий
         uses: actions/checkout@v4
 
-      - name: Установить Java 17 (нужно для Android сборки)
+      - name: Установить Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
@@ -28,9 +28,10 @@ jobs:
       - name: Клонировать love-android шаблон
         run: git clone https://github.com/love2d/love-android.git --depth 1
 
-      - name: Создать ZIP (.love) из main.lua и project.yml
+      - name: Собрать .love и подготовить APK
         run: |
-          zip -r game.love main.lua project.yml
+          mkdir -p love-android/app/src/main/assets
+          zip -r game.love main.lua project.yml conf.lua icon.png 2>/dev/null || true
           cp game.love love-android/app/src/main/assets/game.love
 
       - name: Собрать APK (debug)
