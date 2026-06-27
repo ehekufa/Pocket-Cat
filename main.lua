@@ -1,5 +1,5 @@
--- Pocket Cat IDE v0.6 – Тач-скролл палитры, вертикальный скролл рабочей области,
--- редактор параметров по тапу, перетаскивание длинным нажатием.
+-- Pocket Cat IDE v0.7 – Кнопка запуска в правом верхнем углу, без сохранения/загрузки,
+-- встроенная клавиатура для телефонов.
 
 -- ========== КАТЕГОРИИ И ЦВЕТА ==========
 local catColors = {
@@ -14,7 +14,7 @@ local catColors = {
     sensing  = {0.7, 0.7, 0.7},
 }
 
--- ========== ПАЛИТРА БЛОКОВ ==========
+-- ========== ПАЛИТРА БЛОКОВ (без изменений) ==========
 local paletteBlocks = {
     -- События
     {type="event", name="start",      label="при старте",           category="event"},
@@ -88,7 +88,7 @@ local paletteContentHeight = 0
 local workspaceStartX = paletteWidth + 10
 local workspaceStartY = 60
 local blockSpacing = 8
-local workspaceScrollY = 0      -- скролл рабочей области
+local workspaceScrollY = 0
 local workspaceContentHeight = 0
 
 -- ========== РЕДАКТИРОВАНИЕ ПАРАМЕТРА ==========
@@ -97,12 +97,30 @@ local editingText = ""
 local editFieldW = 120
 local editFieldH = 30
 
--- ========== СОСТОЯНИЕ КАСАНИЙ (для тач-управления) ==========
-local touchStartX, touchStartY = 0, 0
-local touchStartTime = 0
-local isTouchScrollingPalette = false
-local isTouchScrollingWorkspace = false
-local touchMoved = false
+-- ========== ВСТРОЕННАЯ КЛАВИАТУРА (для телефонов) ==========
+local keyboardMode = "digits"
+local keyboardPosX = nil
+local keyboardPosY = 10
+local keyW, keyH = 40, 40
+local keySpacing = 4
+local keyboardVisible = false
+
+local digitsKeys = {
+    {"1","2","3"},
+    {"4","5","6"},
+    {"7","8","9"},
+    {".","0","⌫"}
+}
+local ruKeys = {
+    {"й","ц","у","к","е","н","г","ш","щ","з","х","ъ"},
+    {"ф","ы","в","а","п","р","о","л","д","ж","э"},
+    {"я","ч","с","м","и","т","ь","б","ю","ё"}
+}
+local enKeys = {
+    {"q","w","e","r","t","y","u","i","o","p"},
+    {"a","s","d","f","g","h","j","k","l"},
+    {"z","x","c","v","b","n","m"}
+}
 
 -- ========== КУБ И СФЕРА ==========
 local cubeVertices = {
@@ -288,7 +306,6 @@ function calculateHeights()
         y = y + blockHeight + 6
     end
     paletteContentHeight = y
-
     workspaceContentHeight = workspaceStartY + #workspaceBlocks * (blockHeight + blockSpacing) + 100
 end
 
@@ -312,6 +329,60 @@ function drawBlock(block, x, y, isDragging, highlight)
     love.graphics.setColor(1,1,1)
 end
 
+-- ========== ОТРИСОВКА КЛАВИАТУРЫ ==========
+function drawKeyboard()
+    local keys = nil
+    if keyboardMode == "digits" then keys = digitsKeys
+    elseif keyboardMode == "ru" then keys = ruKeys
+    elseif keyboardMode == "en" then keys = enKeys
+    end
+    if not keys then return end
+
+    local startX = keyboardPosX or (love.graphics.getWidth() - (4 * (keyW + keySpacing) + 10))
+    local startY = keyboardPosY
+
+    -- Текущее значение
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Ввод: " .. editingText, startX, startY - 25)
+
+    for rowIdx, row in ipairs(keys) do
+        for colIdx, key in ipairs(row) do
+            local kx = startX + (colIdx - 1) * (keyW + keySpacing)
+            local ky = startY + (rowIdx - 1) * (keyH + keySpacing)
+            love.graphics.setColor(0.3, 0.3, 0.3)
+            love.graphics.rectangle("fill", kx, ky, keyW, keyH, 4)
+            love.graphics.setColor(1,1,1)
+            love.graphics.print(key, kx + 10, ky + 10)
+        end
+    end
+
+    -- Кнопки переключения режима и управления
+    local btnY = startY + #keys * (keyH + keySpacing) + 5
+    local modes = {
+        {label = "123", mode = "digits"},
+        {label = "АБВ", mode = "ru"},
+        {label = "ABC", mode = "en"},
+    }
+    for i, m in ipairs(modes) do
+        local bx = startX + (i - 1) * (keyW + keySpacing)
+        love.graphics.setColor(0.2, 0.2, 0.6)
+        love.graphics.rectangle("fill", bx, btnY, keyW, keyH, 4)
+        love.graphics.setColor(1,1,1)
+        love.graphics.print(m.label, bx + 8, btnY + 10)
+    end
+
+    -- Готово и Отмена
+    love.graphics.setColor(0, 0.6, 0)
+    love.graphics.rectangle("fill", startX + 3 * (keyW + keySpacing), btnY, keyW, keyH, 4)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("OK", startX + 3 * (keyW + keySpacing) + 10, btnY + 10)
+
+    love.graphics.setColor(0.6, 0, 0)
+    love.graphics.rectangle("fill", startX + 4 * (keyW + keySpacing), btnY, keyW, keyH, 4)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("X", startX + 4 * (keyW + keySpacing) + 12, btnY + 10)
+end
+
 function love.load()
     local loaded = loadYAML("project.yml")
     if loaded then workspaceBlocks = loaded
@@ -323,6 +394,8 @@ function love.load()
         }
     end
     calculateHeights()
+    -- Позиция клавиатуры по умолчанию
+    keyboardPosX = love.graphics.getWidth() - (4 * (keyW + keySpacing) + 20)
 end
 
 function love.draw()
@@ -354,7 +427,6 @@ function love.draw()
     love.graphics.setColor(1,1,1)
     love.graphics.print("Рабочая область (перетащи сюда)", workspaceStartX, 10 - workspaceScrollY)
 
-    -- Отрисовка блоков вертикально со смещением workspaceScrollY
     for i, b in ipairs(workspaceBlocks) do
         local bx = workspaceStartX
         local by = workspaceStartY + (i-1)*(blockHeight + blockSpacing) - workspaceScrollY
@@ -372,16 +444,13 @@ function love.draw()
         drawBlock(draggingBlock, mx-blockWidth/2, my-blockHeight/2, true, false)
     end
 
-    -- Кнопка запуска
+    -- Кнопка запуска в правом верхнем углу
+    local runBtnX = love.graphics.getWidth() - 50
+    local runBtnY = 10
     love.graphics.setColor(0,1,0)
-    love.graphics.circle("fill", 30, love.graphics.getHeight()-40, 22)
+    love.graphics.circle("fill", runBtnX, runBtnY, 22)
     love.graphics.setColor(1,1,1)
-    love.graphics.print("▶", 18, love.graphics.getHeight()-50, 0, 1.6)
-    love.graphics.setColor(0.5,0.5,0.5)
-    love.graphics.rectangle("fill", 5, love.graphics.getHeight()-80, 70, 25)
-    love.graphics.print("Сохранить", 8, love.graphics.getHeight()-78)
-    love.graphics.rectangle("fill", 80, love.graphics.getHeight()-80, 70, 25)
-    love.graphics.print("Загрузить", 83, love.graphics.getHeight()-78)
+    love.graphics.print("▶", runBtnX - 10, runBtnY - 10, 0, 1.6)
 
     -- Сцена (куб, сфера)
     love.graphics.push()
@@ -433,18 +502,22 @@ function love.draw()
     end
     love.graphics.setFont(love.graphics.getFont())
 
-    -- Редактор параметра (если открыт)
-    if editingBlockIdx then
+    -- Редактор параметра (поле ввода на ПК, на телефонах не рисуем)
+    if editingBlockIdx and not keyboardVisible then
         local block = workspaceBlocks[editingBlockIdx]
         local bx = workspaceStartX
         local by = workspaceStartY + (editingBlockIdx-1)*(blockHeight + blockSpacing) - workspaceScrollY
-        -- Поле ввода под блоком
         love.graphics.setColor(0.2,0.2,0.2)
         love.graphics.rectangle("fill", bx, by + blockHeight + 5, editFieldW, editFieldH)
         love.graphics.setColor(1,1,1)
         love.graphics.rectangle("line", bx, by + blockHeight + 5, editFieldW, editFieldH)
         love.graphics.print(editingText, bx+5, by + blockHeight + 10)
         love.graphics.print("Enter - сохранить", bx, by + blockHeight + editFieldH + 10)
+    end
+
+    -- Встроенная клавиатура (только на телефонах при редактировании)
+    if keyboardVisible and editingBlockIdx then
+        drawKeyboard()
     end
 end
 
@@ -499,13 +572,13 @@ function love.wheelmoved(x, y)
 end
 
 function love.textinput(t)
-    if editingBlockIdx then
+    if editingBlockIdx and not keyboardVisible then
         editingText = editingText .. t
     end
 end
 
 function love.keypressed(key)
-    if editingBlockIdx then
+    if editingBlockIdx and not keyboardVisible then
         if key == "return" or key == "kpenter" then
             local block = workspaceBlocks[editingBlockIdx]
             local val = editingText
@@ -531,71 +604,77 @@ end
 
 -- ========== ОБРАБОТКА КАСАНИЙ (телефон) ==========
 function love.touchpressed(id, x, y)
-    -- Запоминаем начальные координаты
+    -- Кнопка запуска (в правом верхнем углу)
+    local runBtnX = love.graphics.getWidth() - 50
+    local runBtnY = 10
+    if math.sqrt((x-runBtnX)^2 + (y-runBtnY)^2) <= 22 then
+        runProject()
+        return
+    end
+
+    -- Если клавиатура видна, обрабатываем нажатия по ней
+    if keyboardVisible and editingBlockIdx then
+        handleKeyboardTouch(x, y)
+        return
+    end
+
     touchStartX, touchStartY = x, y
     touchStartTime = love.timer.getTime()
     touchMoved = false
     isTouchScrollingPalette = false
     isTouchScrollingWorkspace = false
 
-    -- Если редактор открыт и тап вне поля ввода - закрываем
-    if editingBlockIdx then
-        local bx = workspaceStartX
-        local by = workspaceStartY + (editingBlockIdx-1)*(blockHeight + blockSpacing) - workspaceScrollY
-        local inEditor = (x >= bx and x <= bx + editFieldW and
-                          y >= by + blockHeight + 5 and y <= by + blockHeight + 5 + editFieldH)
-        if not inEditor then
-            editingBlockIdx = nil
-            editingText = ""
-            return
+    -- Если редактор открыт на ПК (без клавиатуры) – ничего не делаем
+    if editingBlockIdx and not keyboardVisible then return end
+
+    -- Проверяем, попали ли в рабочую область (где блоки)
+    if x > paletteWidth then
+        -- Открываем редактор для блока, если тап по нему
+        local tapX, tapY = x, y + workspaceScrollY
+        for i, b in ipairs(workspaceBlocks) do
+            local bx = workspaceStartX
+            local by = workspaceStartY + (i-1)*(blockHeight + blockSpacing)
+            if tapX >= bx and tapX <= bx+blockWidth and tapY >= by and tapY <= by+blockHeight then
+                -- Открываем редактор, показываем клавиатуру на телефоне
+                editingBlockIdx = i
+                editingText = tostring(b.param or "")
+                local os = love.system.getOS()
+                if os == "Android" or os == "iOS" then
+                    keyboardVisible = true
+                    keyboardPosX = love.graphics.getWidth() - (4 * (keyW + keySpacing) + 20)
+                else
+                    keyboardVisible = false
+                end
+                return
+            end
         end
-    end
-
-    -- Проверяем кнопки запуска, сохранить, загрузить (всегда)
-    if math.sqrt((x-30)^2 + (y-(love.graphics.getHeight()-40))^2) <= 22 then
-        runProject()
-        return
-    end
-    if x>=5 and x<=75 and y>=love.graphics.getHeight()-80 and y<=love.graphics.getHeight()-55 then
-        saveYAML("project.yml", workspaceBlocks)
-        return
-    end
-    if x>=80 and x<=150 and y>=love.graphics.getHeight()-80 and y<=love.graphics.getHeight()-55 then
-        local loaded = loadYAML("project.yml")
-        if loaded then workspaceBlocks = loaded end
-        return
-    end
-
-    -- Определяем, в какой области тап
-    if x <= paletteWidth then
-        -- Палитра: запоминаем, что начали скролл (будет обработан в touchmoved)
-        isTouchScrollingPalette = true
+        -- Пустое место – триггерим события
+        isTapped = true
+        touchActive = true
     else
-        -- Рабочая область
-        isTouchScrollingWorkspace = true
+        -- Палитра: начинаем скролл
+        isTouchScrollingPalette = true
     end
 end
 
 function love.touchmoved(id, x, y, dx, dy)
+    if keyboardVisible then return end  -- во время ввода не скроллим
     touchMoved = true
     if isTouchScrollingPalette then
         paletteScrollY = paletteScrollY - dy
     elseif isTouchScrollingWorkspace then
         workspaceScrollY = workspaceScrollY - dy
     end
-
-    -- Если уже начали перетаскивание блока, то обновляем позицию (не используется, т.к. тач перетаскивание пока не поддерживается)
 end
 
 function love.touchreleased(id, x, y)
+    if keyboardVisible then return end
     local dist = math.sqrt((x-touchStartX)^2 + (y-touchStartY)^2)
     local dt = love.timer.getTime() - touchStartTime
 
-    -- Если почти не двигались и быстро отпустили - это тап
     if not touchMoved and dist < 15 and dt < 0.3 then
         if x <= paletteWidth then
-            -- Тап по блоку палитры — начинаем перетаскивание?
-            -- Пока для телефона упростим: тап по палитре добавляет блок в конец рабочей области
+            -- Тап по блоку палитры: добавляем блок в рабочую область
             local yInPal = 10 - paletteScrollY
             local lastCat = nil
             for _, b in ipairs(paletteBlocks) do
@@ -605,7 +684,6 @@ function love.touchreleased(id, x, y)
                 end
                 local by = yInPal
                 if x >= 5 and x <= 5+blockWidth and y >= by and y <= by+blockHeight then
-                    -- Добавляем блок в рабочую область
                     local newBlock = {type=b.type, name=b.name, label=b.label, param=b.param, category=b.category}
                     table.insert(workspaceBlocks, newBlock)
                     calculateHeights()
@@ -614,21 +692,7 @@ function love.touchreleased(id, x, y)
                 yInPal = yInPal + blockHeight + 6
             end
         else
-            -- Тап по рабочей области
-            local tapX, tapY = x, y + workspaceScrollY
-            for i, b in ipairs(workspaceBlocks) do
-                local bx = workspaceStartX
-                local by = workspaceStartY + (i-1)*(blockHeight + blockSpacing)
-                if tapX >= bx and tapX <= bx+blockWidth and tapY >= by and tapY <= by+blockHeight then
-                    -- Открыть редактор параметра
-                    editingBlockIdx = i
-                    editingText = tostring(b.param or "")
-                    return
-                end
-            end
-            -- Пустое место: триггерим событие tap
-            isTapped = true
-            touchActive = true
+            -- Рабочая область (уже обработано в touchpressed)
         end
     end
 
@@ -636,3 +700,72 @@ function love.touchreleased(id, x, y)
     isTouchScrollingWorkspace = false
     touchMoved = false
 end
+
+-- Обработка нажатий по клавиатуре
+function handleKeyboardTouch(x, y)
+    local startX = keyboardPosX
+    local startY = keyboardPosY
+    local keys = nil
+    if keyboardMode == "digits" then keys = digitsKeys
+    elseif keyboardMode == "ru" then keys = ruKeys
+    elseif keyboardMode == "en" then keys = enKeys
+    end
+
+    -- Проверяем основные клавиши
+    for rowIdx, row in ipairs(keys) do
+        for colIdx, key in ipairs(row) do
+            local kx = startX + (colIdx - 1) * (keyW + keySpacing)
+            local ky = startY + (rowIdx - 1) * (keyH + keySpacing)
+            if x >= kx and x <= kx + keyW and y >= ky and y <= ky + keyH then
+                if key == "⌫" then
+                    editingText = editingText:sub(1, -2)
+                else
+                    editingText = editingText .. key
+                end
+                return
+            end
+        end
+    end
+
+    -- Кнопки переключения и управления
+    local btnY = startY + #keys * (keyH + keySpacing) + 5
+    local modes = {
+        {label = "123", mode = "digits"},
+        {label = "АБВ", mode = "ru"},
+        {label = "ABC", mode = "en"},
+    }
+    for i, m in ipairs(modes) do
+        local bx = startX + (i - 1) * (keyW + keySpacing)
+        if x >= bx and x <= bx + keyW and y >= btnY and y <= btnY + keyH then
+            keyboardMode = m.mode
+            return
+        end
+    end
+
+    -- Готово (OK)
+    local okX = startX + 3 * (keyW + keySpacing)
+    if x >= okX and x <= okX + keyW and y >= btnY and y <= btnY + keyH then
+        local block = workspaceBlocks[editingBlockIdx]
+        local val = editingText
+        if tonumber(val) then
+            block.param = tonumber(val)
+        else
+            block.param = val
+        end
+        editingBlockIdx = nil
+        editingText = ""
+        keyboardVisible = false
+        return
+    end
+
+    -- Отмена (X)
+    local cancelX = startX + 4 * (keyW + keySpacing)
+    if x >= cancelX and x <= cancelX + keyW and y >= btnY and y <= btnY + keyH then
+        editingBlockIdx = nil
+        editingText = ""
+        keyboardVisible = false
+        return
+    end
+end
+
+function love.mousemoved(x, y) mouseMoved = true end
