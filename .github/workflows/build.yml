@@ -48,11 +48,7 @@ jobs:
             git clone --recursive --depth 1 https://github.com/love2d/love-android.git
           fi
 
-      - name: Set package name to com.pocketcat
-        run: |
-          sed -i 's/applicationId "org.love2d.android"/applicationId "com.pocketcat"/g' love-android/app/build.gradle
-
-      # Иконку оставляем стандартную (никаких действий не нужно)
+      # НЕ меняем applicationId, оставляем org.love2d.android (стандартный)
 
       - uses: actions/cache@v4
         with:
