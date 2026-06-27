@@ -1,14 +1,13 @@
-name: Build PocketCat Debug APK (fast)
+name: Build_PocketCat_Android_Debug
 
 on:
   push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-debug:
+  build-android-debug:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -18,59 +17,54 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v3
 
-      # Кешируем NDK
       - uses: actions/cache@v4
         with:
           path: ${{ env.ANDROID_HOME }}/ndk/25.2.9519653
           key: ndk-25.2.9519653-v2
 
-      - name: Install NDK (if not cached)
+      - name: Install NDK
         run: |
           if [ ! -d "$ANDROID_HOME/ndk/25.2.9519653" ]; then
             yes | sdkmanager "ndk;25.2.9519653"
           fi
 
-      - name: Export NDK path
+      - name: Export NDK
         run: |
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
           echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
 
-      # Кешируем клон love-android
       - uses: actions/cache@v4
         with:
           path: love-android
           key: love-android-src-v2
 
-      - name: Clone love-android (if not cached)
+      - name: Clone love-android
         run: |
           if [ ! -f "love-android/gradlew" ]; then
-            git clone --depth 1 --recursive https://github.com/love2d/love-android.git
+            git clone --recursive --depth 1 https://github.com/love2d/love-android.git
           fi
 
-      # Кешируем Gradle
       - uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('love-android/**/*.gradle*', 'love-android/**/gradle-wrapper.properties') }}-v1
+          key: gradle-v2
 
-      # Кешируем нативную сборку
       - uses: actions/cache@v4
         with:
           path: |
             love-android/app/.cxx
             love-android/app/build
-          key: native-${{ runner.os }}-${{ hashFiles('love-android/app/build.gradle', 'main.lua', 'project.yml') }}-v1
+          key: native-v2
 
       - name: Package game.love
         run: |
           zip -9 -r game.love . -x "*.git*" -x ".github/*" -x "love-android/*" -x "*.yml"
 
-      - name: Embed game.love
+      - name: Embed game
         run: |
           mkdir -p love-android/app/src/embed/assets
           cp game.love love-android/app/src/embed/assets/game.love
@@ -84,8 +78,15 @@ jobs:
         working-directory: love-android
         run: ./gradlew assembleEmbedNoRecordDebug --no-daemon --parallel --console=plain
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Collect APK
+        run: |
+          APK=$(find love-android -name "*.apk" | head -1)
+          APK_NAME="PocketCat_Debug_$(date +'%Y%m%d_%H%M').apk"
+          cp "$APK" "$APK_NAME"
+          echo "apk-name=$APK_NAME" >> $GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: PocketCat-Debug-APK
-          path: love-android/app/build/outputs/apk/debug/*.apk
+          name: PocketCat_Debug_APK
+          path: PocketCat_Debug_*.apk
+          compression-level: 0
