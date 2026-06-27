@@ -1,4 +1,4 @@
--- Pocket Cat IDE v0.4 – Гигантская палитра блоков со скроллом (полный)
+-- Pocket Cat IDE v0.4 – Гигантская палитра + редактор параметров + скролл
 -- События, движение, внешность, звук, управление, переменные, рисование, датчики
 
 -- ========== КАТЕГОРИИ И ЦВЕТА ==========
@@ -14,7 +14,7 @@ local catColors = {
     sensing  = {0.7, 0.7, 0.7},
 }
 
--- ========== ПАЛИТРА БЛОКОВ ==========
+-- ========== ПАЛИТРА БЛОКОВ (очень много) ==========
 local paletteBlocks = {
     -- События
     {type="event", name="start",      label="при старте",           category="event"},
@@ -85,6 +85,12 @@ local blockWidth, blockHeight = 175, 34
 local paletteWidth = 200
 local paletteScrollY = 0
 local paletteContentHeight = 0
+
+-- ========== РЕДАКТИРОВАНИЕ ПАРАМЕТРА ==========
+local editingBlockIdx = nil     -- индекс блока в workspaceBlocks, который редактируем
+local editingText = ""          -- текущий вводимый текст
+local editFieldW = 120
+local editFieldH = 30
 
 -- ========== КУБ И СФЕРА ==========
 local cubeVertices = {
@@ -207,7 +213,7 @@ function executeActions(actions)
         elseif act.name == "wait" then waitTimer = tonumber(p) or 1; return true
         elseif act.name == "repeat" then
             local times = tonumber(p) or 3
-            for _=1, times do -- (упрощено)
+            for _=1, times do
             end
         elseif act.name == "ifTap" then
             if not isTapped then return true end
@@ -273,12 +279,16 @@ function calculatePaletteContentHeight()
 end
 
 -- ========== ОТРИСОВКА БЛОКОВ ==========
-function drawBlock(block, x, y, isDragging)
+function drawBlock(block, x, y, isDragging, highlight)
     local color = catColors[block.category] or {0.4,0.4,0.8}
     love.graphics.setColor(color)
     love.graphics.rectangle("fill", x, y, blockWidth, blockHeight, 6)
     love.graphics.setColor(0,0,0)
     love.graphics.rectangle("line", x, y, blockWidth, blockHeight, 6)
+    if highlight then
+        love.graphics.setColor(1,1,0)
+        love.graphics.rectangle("line", x, y, blockWidth, blockHeight, 6)
+    end
     love.graphics.setColor(1,1,1)
     love.graphics.print(block.label or block.name, x+8, y+8)
     if isDragging then
@@ -317,7 +327,7 @@ function love.draw()
             lastCat = b.category
         end
         if y + blockHeight > 0 and y < love.graphics.getHeight() then
-            drawBlock(b, 5, y)
+            drawBlock(b, 5, y, false, false)
         end
         y = y + blockHeight + 6
     end
@@ -331,14 +341,15 @@ function love.draw()
     for i, b in ipairs(workspaceBlocks) do
         local bx = paletteWidth + 10 + (i-1)*(blockWidth+8)
         local by = 60
+        local highlight = (editingBlockIdx == i)
         if not (draggingBlock == b and not dragFromPalette) then
-            drawBlock(b, bx, by)
+            drawBlock(b, bx, by, false, highlight)
         end
     end
 
     if draggingBlock then
         local mx, my = love.mouse.getPosition()
-        drawBlock(draggingBlock, mx-blockWidth/2, my-blockHeight/2, true)
+        drawBlock(draggingBlock, mx-blockWidth/2, my-blockHeight/2, true, false)
     end
 
     -- Кнопка запуска
@@ -399,6 +410,20 @@ function love.draw()
         msgY = msgY + fontSize + 4
     end
     love.graphics.setFont(love.graphics.getFont())
+
+    -- Редактор параметра (если открыт)
+    if editingBlockIdx then
+        local block = workspaceBlocks[editingBlockIdx]
+        local bx = paletteWidth + 10 + (editingBlockIdx-1)*(blockWidth+8)
+        local by = 60
+        -- Рисуем поле ввода
+        love.graphics.setColor(0.2,0.2,0.2)
+        love.graphics.rectangle("fill", bx, by + blockHeight + 5, editFieldW, editFieldH)
+        love.graphics.setColor(1,1,1)
+        love.graphics.rectangle("line", bx, by + blockHeight + 5, editFieldW, editFieldH)
+        love.graphics.print(editingText, bx+5, by + blockHeight + 10)
+        love.graphics.print("Enter - сохранить", bx, by + blockHeight + editFieldH + 10)
+    end
 end
 
 function love.update(dt)
@@ -444,12 +469,59 @@ function love.wheelmoved(x, y)
     end
 end
 
+-- Обработка ввода текста для редактирования параметра
+function love.textinput(t)
+    if editingBlockIdx then
+        editingText = editingText .. t
+    end
+end
+
+function love.keypressed(key)
+    if editingBlockIdx then
+        if key == "return" or key == "kpenter" then
+            -- Сохраняем введённое значение
+            local block = workspaceBlocks[editingBlockIdx]
+            local val = editingText
+            if tonumber(val) then
+                block.param = tonumber(val)
+            else
+                block.param = val
+            end
+            editingBlockIdx = nil
+            editingText = ""
+        elseif key == "escape" then
+            editingBlockIdx = nil
+            editingText = ""
+        elseif key == "backspace" then
+            editingText = editingText:sub(1, -2)
+        end
+    else
+        if key == "a" then keyAPressed = true
+        elseif key == "b" then keyBPressed = true
+        end
+    end
+end
+
 function love.mousepressed(x, y, button)
     if button == 1 then
+        -- Если редактор открыт, клик вне поля закрывает его (кроме самого поля)
+        if editingBlockIdx then
+            local bx = paletteWidth + 10 + (editingBlockIdx-1)*(blockWidth+8)
+            local by = 60
+            local inEditor = (x >= bx and x <= bx + editFieldW and y >= by + blockHeight + 5 and y <= by + blockHeight + 5 + editFieldH)
+            if not inEditor then
+                editingBlockIdx = nil
+                editingText = ""
+            end
+            return
+        end
+
+        -- Кнопка запуска
         if math.sqrt((x-30)^2 + (y-(love.graphics.getHeight()-40))^2) <= 22 then
             runProject()
             return
         end
+        -- Сохранить / Загрузить
         if x>=5 and x<=75 and y>=love.graphics.getHeight()-80 and y<=love.graphics.getHeight()-55 then
             saveYAML("project.yml", workspaceBlocks)
             return
@@ -477,11 +549,12 @@ function love.mousepressed(x, y, button)
             py = py + blockHeight + 6
         end
 
-        -- Рабочая область
+        -- Рабочая область: ищем блок под курсором
         for i, b in ipairs(workspaceBlocks) do
             local bx = paletteWidth + 10 + (i-1)*(blockWidth+8)
             local by = 60
             if x>=bx and x<=bx+blockWidth and y>=by and y<=by+blockHeight then
+                -- Запоминаем, что начали перетаскивание
                 draggingBlock = b
                 dragFromPalette = false
                 table.remove(workspaceBlocks, i)
@@ -489,28 +562,46 @@ function love.mousepressed(x, y, button)
             end
         end
 
-        isTapped = true
-        touchActive = true
+        -- Если клик по пустому месту рабочей области – просто флаг нажатия
+        if x >= paletteWidth then
+            isTapped = true
+            touchActive = true
+        end
     end
 end
 
 function love.mousereleased(x, y, button)
-    if button == 1 and draggingBlock then
-        if x >= paletteWidth then
-            table.insert(workspaceBlocks, draggingBlock)
+    if button == 1 then
+        if draggingBlock then
+            if x >= paletteWidth then
+                -- Проверим, не было ли это просто кликом (без перемещения) для открытия редактора
+                -- Если блок не двигался (почти), откроем редактор
+                local idx = #workspaceBlocks + 1  -- после вставки будет последним
+                table.insert(workspaceBlocks, draggingBlock)
+                -- Если блок был взят из рабочей области (dragFromPalette==false), и мы его не сдвинули далеко,
+                -- то это был клик, а не перетаскивание – открываем редактор параметра
+                if not dragFromPalette then
+                    local startX = paletteWidth + 10 + (idx-1)*(blockWidth+8)
+                    local startY = 60
+                    local dx = x - startX
+                    local dy = y - startY
+                    if math.abs(dx) < 10 and math.abs(dy) < 10 then
+                        -- Это был клик! Откроем редактор параметра для этого блока
+                        editingBlockIdx = idx
+                        editingText = tostring(draggingBlock.param or "")
+                    end
+                end
+            else
+                -- Бросили за пределами рабочей области – удаляем блок (не добавляем обратно)
+            end
+            draggingBlock = nil
+            dragFromPalette = false
         end
-        draggingBlock = nil
-        dragFromPalette = false
+        isReleased = true
+        touchActive = false
     end
-    isReleased = true
-    touchActive = false
 end
 
 function love.touchpressed(id, x, y) love.mousepressed(x, y, 1) end
 function love.touchreleased(id, x, y) love.mousereleased(x, y, 1) end
-function love.keypressed(key)
-    if key == "a" then keyAPressed = true
-    elseif key == "b" then keyBPressed = true
-    end
-end
 function love.mousemoved(x, y) mouseMoved = true end
