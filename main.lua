@@ -496,7 +496,8 @@ function handleTabsClick(x, y)
         if scene then
             for i, obj in ipairs(scene.objects) do
                 local w = love.graphics.getFont():getWidth(obj.name) + 15
-                if x >= ox and x <= ox+w then State.currentObjectIdx = i; updateWorkspaceBlocks(); return true end                if x >= ox+w+5 and x <= ox+w+30 then State.paintMode = true; return true end
+                if x >= ox and x <= ox+w then State.currentObjectIdx = i; updateWorkspaceBlocks(); return true end
+                if x >= ox+w+5 and x <= ox+w+30 then State.paintMode = true; return true end
                 if x >= ox+w+35 and x <= ox+w+60 then openFilePicker(); return true end
                 ox = ox + w + 65
             end
@@ -637,9 +638,11 @@ function handlePaintTouch(x, y, isDown)
             if State.paintCurrentTool == "brush" then
                 love.graphics.setColor(State.paintBrushColor)
                 love.graphics.rectangle("fill", px2-1, py2-1, State.paintSize, State.paintSize)
+                love.graphics.setCanvas()
             elseif State.paintCurrentTool == "eraser" then
                 love.graphics.setColor(0,0,0,0)
                 love.graphics.rectangle("fill", px2-1, py2-1, State.paintSize, State.paintSize)
+                love.graphics.setCanvas()
             elseif State.paintCurrentTool == "picker" then
                 love.graphics.setCanvas()
                 local imgData = State.paintCanvas:newImageData()
