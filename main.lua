@@ -41,57 +41,41 @@ State = {
     catColors = {
         event = {0.9,0.6,0.2}, motion = {0.2,0.6,0.9}, looks = {0.7,0.3,0.9},
         sound = {0.3,0.9,0.4}, control = {1.0,0.8,0.2}, variables = {0.9,0.2,0.2},
-        draw = {0.2,0.8,0.8}, text = {0.9,0.2,0.2}, sensing = {0.7,0.7,0.7}, pen = {0.2,1.0,0.4},
-        notes = {0.5,0.5,0.5}
+        draw = {0.2,0.8,0.8}, text = {1.0,1.0,1.0}, sensing = {0.7,0.7,0.7}, pen = {0.2,1.0,0.4}
     },
     paletteBlocks = {
-        -- события
         {type="event", name="start", label="при старте", category="event"},
         {type="event", name="tap", label="при нажатии", category="event"},
         {type="event", name="release", label="при отпускании", category="event"},
         {type="event", name="touch", label="при касании", category="event"},
-        -- движение
         {type="action", name="changeX", label="изменить X на", param=10, category="motion"},
         {type="action", name="changeY", label="изменить Y на", param=10, category="motion"},
         {type="action", name="setX", label="установить X в", param=200, category="motion"},
         {type="action", name="setY", label="установить Y в", param=200, category="motion"},
         {type="action", name="turn", label="повернуть на", param=15, category="motion"},
-        -- внешность
         {type="action", name="showCube", label="показать куб", category="looks"},
         {type="action", name="showSphere", label="показать сферу", category="looks"},
+        {type="action", name="showImage", label="показать спрайт", category="looks"},
         {type="action", name="hide", label="скрыть объект", category="looks"},
         {type="action", name="show", label="показать объект", category="looks"},
         {type="action", name="setColor", label="установить цвет", param="green", category="looks"},
         {type="action", name="setSize", label="установить размер", param=50, category="looks"},
-        -- перо
         {type="action", name="penDown", label="включить перо", category="pen"},
         {type="action", name="penUp", label="выключить перо", category="pen"},
         {type="action", name="penClear", label="очистить перо", category="pen"},
         {type="action", name="penColor", label="цвет пера", param="green", category="pen"},
         {type="action", name="penSize", label="размер пера", param=2, category="pen"},
-        -- звук
         {type="action", name="playSound", label="играть звук", param="", category="sound"},
-        -- управление
         {type="action", name="wait", label="ждать", param=1, category="control"},
         {type="action", name="repeat", label="повторить 3 раза", param=3, category="control"},
         {type="action", name="forever", label="вечно", category="control"},
-        {type="action", name="switchScene", label="запустить сцену", param="Сцена 1", category="control"},
         {type="action", name="ifTap", label="если нажато", category="control"},
         {type="action", name="stopAll", label="остановить всё", category="control"},
-        -- переменные (красные)
-        {type="action", name="setVar", label="установить [var] в", param="x:10", category="variables"},
-        {type="action", name="changeVar", label="изменить [var] на", param="x:5", category="variables"},
-        {type="action", name="showVar", label="показать переменную", param="x", category="variables"},
-        {type="action", name="hideVar", label="скрыть переменную", param="x", category="variables"},
-        -- текст (красный)
         {type="action", name="printText", label="вывести текст", param="Привет!", category="text"},
-        -- датчики
         {type="action", name="mouseX", label="мышь X", category="sensing"},
         {type="action", name="mouseY", label="мышь Y", category="sensing"},
         {type="action", name="touchX", label="касание X", category="sensing"},
-        {type="action", name="touchY", label="касание Y", category="sensing"},
-        -- памятка
-        {type="action", name="note", label="// заметка", param="введи текст", category="notes"}
+        {type="action", name="touchY", label="касание Y", category="sensing"}
     },
     workspaceBlocks = {}, paletteWidth = 200, paletteScrollY = 0, paletteContentHeight = 0,
     workspaceStartX = 210, workspaceStartY = 80, blockWidth = 175, blockHeight = 34, blockSpacing = 8,
@@ -105,7 +89,14 @@ State = {
     ruKeys = {{"й","ц","у","к","е","н","г","ш","щ","з","х","ъ"},{"ф","ы","в","а","п","р","о","л","д","ж","э"},{"я","ч","с","м","и","т","ь","б","ю","ё"}},
     enKeys = {{"q","w","e","r","t","y","u","i","o","p"},{"a","s","d","f","g","h","j","k","l"},{"z","x","c","v","b","n","m"}},
     paintMode = false, paintCanvas = nil, paintSize = 32, paintScale = 10, paintBrushColor = {1,1,1}, paintCurrentTool = "brush",
-    showCube = false, showSphere = false, cubeX = 200, cubeY = 300, sphereX = 400, sphereY = 300,
+    paintTools = {"brush", "eraser", "fill", "picker"},
+    paintColors = {
+        {1,1,1}, {0,0,0}, {1,0,0}, {0,1,0}, {0,0,1}, {1,1,0}, {1,0,1}, {0,1,1},
+        {0.5,0.5,0.5}, {1,0.5,0}, {0.5,0,0.5}, {0,0.5,0.5}
+    },
+    paintSizes = {1, 2, 4, 8},
+    showCube = false, showSphere = false, showImage = false,
+    cubeX = 200, cubeY = 300, sphereX = 400, sphereY = 300,
     objectAngle = 0, objectColor = {0.2,0.8,0.4}, objectSize = 50,
     cubeVertices = {{-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},{-1,-1,1},{1,-1,1},{1,1,1},{-1,1,1}},
     cubeEdges = {{1,2},{2,3},{3,4},{4,1},{5,6},{6,7},{7,8},{8,5},{1,5},{2,6},{3,7},{4,8}},
@@ -113,10 +104,7 @@ State = {
     penDown = false, penColor = {1,0,0}, penSize = 2, penPoints = {},
     drawCommands = {}, messages = {}, vars = {}, font = nil, fontSize = 16,
     plugins = {}, clipboard = nil,
-    paletteTapBlock = nil, paletteTapTime = 0, paletteMoved = false,
-    projects = {}, currentProjectFile = "project.cat", showProjectMenu = false,
-    orientation = "portrait",
-    scenePickerVisible = false, scenePickerBlockIdx = nil
+    paletteTapBlock = nil, paletteTapTime = 0, paletteMoved = false
 }
 
 json = {}
@@ -167,8 +155,7 @@ function defaultProject()
         scenes = {{ name = "Сцена 1", bgColor = {0.2,0.2,0.4}, objects = {{ name = "Объект 1", image = nil, blocks = {
             {type="event", name="start", label="при старте", category="event"},
             {type="action", name="showCube", label="показать куб", category="looks"}
-        }}} }},
-        orientation = "portrait"
+        }}} }}
     }
 end
 function getCurrentScene()
@@ -254,10 +241,6 @@ function drawButtons()
     btnY = btnY + 35
     love.graphics.setColor(0.2,0.5,1.0)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
-    love.graphics.print("Сохранить .txt", love.graphics.getWidth()-145, btnY+8)
-    btnY = btnY + 35
-    love.graphics.setColor(0.2,0.5,1.0)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
     love.graphics.print("Загрузить .cat", love.graphics.getWidth()-145, btnY+8)
     btnY = btnY + 35
     love.graphics.setColor(0.7,0.7,0.2)
@@ -265,41 +248,21 @@ function drawButtons()
     love.graphics.print("Коп.", love.graphics.getWidth()-145, btnY+5)
     love.graphics.rectangle("fill", love.graphics.getWidth()-78, btnY, 68, 25)
     love.graphics.print("Вст.", love.graphics.getWidth()-73, btnY+5)
-    btnY = btnY + 35
-    love.graphics.setColor(0.8,0.5,0.2)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 25)
-    love.graphics.print("Ориентация", love.graphics.getWidth()-145, btnY+5)
-    btnY = btnY + 35
-    love.graphics.setColor(0.5,0.5,0.5)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 25)
-    love.graphics.print("Проекты", love.graphics.getWidth()-145, btnY+5)
 end
 function checkButtonClick(x, y)
     local rx = love.graphics.getWidth() - 50
     if math.sqrt((x-rx)^2 + (y-15)^2) <= 22 then runProject(); return true end
     local btnY = 50
-    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then saveProject(State.currentProjectFile); return true end
-    btnY = btnY + 35
-    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then exportTXT("project.txt"); return true end
+    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then saveProject("project.cat"); return true end
     btnY = btnY + 35
     if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-        local saved = loadProject(State.currentProjectFile)
+        local saved = loadProject("project.cat")
         if saved then State.project = saved; updateWorkspaceBlocks() end
         return true
     end
     btnY = btnY + 35
     if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-82 and y >= btnY and y <= btnY+25 then copyBlock(); return true end
     if x >= love.graphics.getWidth()-78 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+25 then pasteBlock(); return true end
-    btnY = btnY + 35
-    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+25 then
-        if State.project.orientation == "portrait" then State.project.orientation = "landscape" else State.project.orientation = "portrait" end
-        applyOrientation()
-        return true
-    end
-    btnY = btnY + 35
-    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+25 then
-        scanProjects(); State.showProjectMenu = true; return true
-    end
     return false
 end
 function copyBlock()
@@ -333,10 +296,11 @@ function executeActions(actions)
         elseif a.name == "setX" then State.cubeX = tonumber(p) or 200
         elseif a.name == "setY" then State.cubeY = tonumber(p) or 200
         elseif a.name == "turn" then State.objectAngle = State.objectAngle + (tonumber(p) or 15)
-        elseif a.name == "showCube" then State.showCube = true
-        elseif a.name == "showSphere" then State.showSphere = true
-        elseif a.name == "hide" then State.showCube, State.showSphere = false, false
-        elseif a.name == "show" then State.showCube, State.showSphere = true, true
+        elseif a.name == "showCube" then State.showCube = true; State.showImage = false
+        elseif a.name == "showSphere" then State.showSphere = true; State.showImage = false
+        elseif a.name == "showImage" then State.showImage = true; State.showCube = false; State.showSphere = false
+        elseif a.name == "hide" then State.showCube, State.showSphere, State.showImage = false, false, false
+        elseif a.name == "show" then State.showImage = true
         elseif a.name == "setColor" then
             if p == "green" then State.objectColor = {0.2,0.8,0.4} elseif p == "red" then State.objectColor = {0.9,0.2,0.2} elseif p == "blue" then State.objectColor = {0.2,0.4,1.0} end
         elseif a.name == "setSize" then State.objectSize = tonumber(p) or 50
@@ -354,31 +318,9 @@ function executeActions(actions)
             end
         elseif a.name == "wait" then State.waitTimer = tonumber(p) or 1; return true
         elseif a.name == "forever" then if not State.stopAll then i = i - 1 end
-        elseif a.name == "switchScene" then
-            for i_sc, sc in ipairs(State.project.scenes) do
-                if sc.name == p then State.currentSceneIdx = i_sc; break end
-            end
         elseif a.name == "ifTap" then if not State.isTapped then return true end
         elseif a.name == "stopAll" then State.stopAll = true; return true
         elseif a.name == "printText" then table.insert(State.messages, tostring(p or "Привет!"))
-        elseif a.name == "setVar" then
-            local key, val = p:match("([%w_]+):(.+)")
-            if key and val then
-                if tonumber(val) then val = tonumber(val) end
-                State.vars[key] = val
-            end
-        elseif a.name == "changeVar" then
-            local key, val = p:match("([%w_]+):(.+)")
-            if key and val then
-                local delta = tonumber(val) or 0
-                State.vars[key] = (State.vars[key] or 0) + delta
-            end
-        elseif a.name == "showVar" then
-            local key = p or "x"
-            table.insert(State.messages, key .. " = " .. tostring(State.vars[key] or 0))
-        elseif a.name == "hideVar" then
-            -- удаляет переменную из памяти (но не из сообщений)
-            State.vars[p] = nil
         elseif a.name == "mouseX" then table.insert(State.messages, "mouse X: "..love.mouse.getX())
         elseif a.name == "mouseY" then table.insert(State.messages, "mouse Y: "..love.mouse.getY())
         elseif a.name == "touchX" then
@@ -387,7 +329,6 @@ function executeActions(actions)
         elseif a.name == "touchY" then
             local touches = love.touch.getTouches()
             if touches[1] then table.insert(State.messages, "touch Y: "..select(2, love.touch.getPosition(touches[1]))) else table.insert(State.messages, "no touch") end
-        elseif a.name == "note" then -- ничего не делает
         end
         if State.penDown and (a.name == "changeX" or a.name == "changeY" or a.name == "setX" or a.name == "setY" or a.name == "turn") then
             table.insert(State.penPoints, {State.cubeX, State.cubeY, State.penColor[1], State.penColor[2], State.penColor[3], State.penSize})
@@ -397,7 +338,7 @@ function executeActions(actions)
     return false
 end
 function runProject()
-    State.stopAll = false; State.drawCommands = {}; State.messages = {}; State.waitTimer = 0
+    State.stopAll = false; State.drawCommands = {}; State.messages = {}; State.vars = {}; State.waitTimer = 0
     State.penDown = false; State.penPoints = {}
     compileScript()
     if State.eventHandlers["start"] then executeActions(State.eventHandlers["start"]) end
@@ -497,40 +438,6 @@ function handleKeyboardTouch(x, y)
     end
     if y < ky then State.editingBlockIdx = nil; State.editingText = ""; State.keyboardVisible = false; return true end
     return false
-end
-
-function drawScenePicker()
-    if not State.scenePickerVisible then return end
-    love.graphics.setColor(0,0,0,0.8)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Выберите сцену", 10, 10)
-    local y = 40
-    for i, sc in ipairs(State.project.scenes) do
-        love.graphics.setColor(0.3,0.3,0.8)
-        love.graphics.rectangle("fill", 10, y, 200, 25)
-        love.graphics.setColor(1,1,1)
-        love.graphics.print(sc.name, 15, y+5)
-        y = y + 30
-    end
-end
-function handleScenePickerClick(x, y)
-    if not State.scenePickerVisible then return false end
-    local py = 40
-    for i, sc in ipairs(State.project.scenes) do
-        if x >= 10 and x <= 210 and y >= py and y <= py+25 then
-            if State.scenePickerBlockIdx and State.workspaceBlocks[State.scenePickerBlockIdx] then
-                State.workspaceBlocks[State.scenePickerBlockIdx].param = sc.name
-            end
-            State.scenePickerVisible = false
-            State.scenePickerBlockIdx = nil
-            return true
-        end
-        py = py + 30
-    end
-    State.scenePickerVisible = false
-    State.scenePickerBlockIdx = nil
-    return true
 end
 
 function drawTabs()
@@ -636,50 +543,109 @@ function initPaint()
 end
 function drawPaint()
     if not State.paintMode then return end
-    love.graphics.setColor(0,0,0,0.8)
+    love.graphics.setColor(0.1,0.1,0.1,0.95)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
     love.graphics.setColor(1,1,1)
-    love.graphics.print("Paint (32x32) - draw", 10, 10)
-    love.graphics.rectangle("line", 50, 50, State.paintSize*State.paintScale, State.paintSize*State.paintScale)
-    love.graphics.draw(State.paintCanvas, 50, 50, 0, State.paintScale, State.paintScale)
-    love.graphics.print("Tool: " .. (State.paintCurrentTool == "brush" and "Brush" or "Eraser"), 10, 400)
-    love.graphics.print("Color:", 10, 430)
-    love.graphics.setColor(State.paintBrushColor)
-    love.graphics.rectangle("fill", 60, 430, 20, 20)
+    love.graphics.rectangle("line", 20, 50, State.paintSize*State.paintScale, State.paintSize*State.paintScale)
+    love.graphics.draw(State.paintCanvas, 20, 50, 0, State.paintScale, State.paintScale)
+    local px = 20 + State.paintSize*State.paintScale + 30
+    love.graphics.setColor(0.2,0.2,0.2)
+    love.graphics.rectangle("fill", px-10, 50, 140, 280, 8)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Tools:", px, 60)
+    for i, tool in ipairs(State.paintTools) do
+        local y = 90 + (i-1)*40
+        if State.paintCurrentTool == tool then love.graphics.setColor(0.4,0.6,1) else love.graphics.setColor(0.3,0.3,0.3) end
+        love.graphics.rectangle("fill", px, y, 120, 30, 5)
+        love.graphics.setColor(1,1,1)
+        love.graphics.print(tool, px+5, y+7)
+    end
+    love.graphics.print("Color:", px, 270)
+    for i, col in ipairs(State.paintColors) do
+        local cx = px + ((i-1) % 4) * 30
+        local cy = 290 + math.floor((i-1)/4) * 30
+        love.graphics.setColor(col)
+        love.graphics.rectangle("fill", cx, cy, 24, 24, 4)
+        love.graphics.setColor(1,1,1)
+        love.graphics.rectangle("line", cx, cy, 24, 24, 4)
+    end
+    love.graphics.print("Size:", px, 390)
+    for i, sz in ipairs(State.paintSizes) do
+        local sx = px + (i-1)*35
+        if State.paintSize == sz then love.graphics.setColor(0.4,0.6,1) else love.graphics.setColor(0.3,0.3,0.3) end
+        love.graphics.rectangle("fill", sx, 410, 30, 30, 5)
+        love.graphics.setColor(1,1,1)
+        love.graphics.print(sz, sx+10, 418)
+    end
     love.graphics.setColor(0.3,0.8,0.3)
-    love.graphics.rectangle("fill", 120, 400, 100, 30)
-    love.graphics.print("Save", 145, 407)
+    love.graphics.rectangle("fill", px, 460, 120, 30, 5)
+    love.graphics.print("Save", px+40, 468)
     love.graphics.setColor(0.8,0.3,0.3)
-    love.graphics.rectangle("fill", 230, 400, 100, 30)
-    love.graphics.print("Close", 245, 407)
+    love.graphics.rectangle("fill", px, 500, 120, 30, 5)
+    love.graphics.print("Close", px+40, 508)
 end
 function handlePaintTouch(x, y, isDown)
     if not State.paintMode then return false end
-    if y > 390 and y < 430 then
-        if x > 120 and x < 220 then
-            local obj = getCurrentObject()
-            if obj then
-                local imgData = State.paintCanvas:newImageData()
-                local filename = "obj_" .. State.currentSceneIdx .. "_" .. State.currentObjectIdx .. ".png"
-                imgData:encode("png", filename)
-                obj.image = filename
-            end
-            State.paintMode = false
-            return true
-        elseif x > 230 and x < 330 then State.paintMode = false; return true end
+    local px = 20 + State.paintSize*State.paintScale + 30
+    if y > 450 and y < 490 and x > px and x < px+120 then
+        local obj = getCurrentObject()
+        if obj then
+            local imgData = State.paintCanvas:newImageData()
+            local filename = "obj_" .. State.currentSceneIdx .. "_" .. State.currentObjectIdx .. ".png"
+            imgData:encode("png", filename)
+            obj.image = filename
+        end
+        State.paintMode = false; return true
     end
-    local cx, cy = 50, 50
-    local pw = State.paintSize * State.paintScale
-    if x >= cx and x <= cx+pw and y >= cy and y <= cy+pw then
-        local px = math.floor((x - cx) / State.paintScale) + 1
-        local py = math.floor((y - cy) / State.paintScale) + 1
-        if px >= 1 and px <= State.paintSize and py >= 1 and py <= State.paintSize then
-            if isDown then
+    if y > 490 and y < 530 and x > px and x < px+120 then
+        State.paintMode = false; return true
+    end
+    for i, tool in ipairs(State.paintTools) do
+        local ty = 90 + (i-1)*40
+        if x > px and x < px+120 and y > ty and y < ty+30 then
+            State.paintCurrentTool = tool
+            if tool == "fill" then
                 love.graphics.setCanvas(State.paintCanvas)
-                if State.paintCurrentTool == "brush" then love.graphics.setColor(State.paintBrushColor) else love.graphics.setColor(0,0,0,0) end
-                love.graphics.rectangle("fill", px-1, py-1, 1, 1)
+                love.graphics.setColor(State.paintBrushColor)
+                love.graphics.rectangle("fill", 0, 0, State.paintSize, State.paintSize)
                 love.graphics.setCanvas()
             end
+            return true
+        end
+    end
+    for i, col in ipairs(State.paintColors) do
+        local cx = px + ((i-1) % 4) * 30
+        local cy = 290 + math.floor((i-1)/4) * 30
+        if x > cx and x < cx+24 and y > cy and y < cy+24 then
+            State.paintBrushColor = col; return true
+        end
+    end
+    for i, sz in ipairs(State.paintSizes) do
+        local sx = px + (i-1)*35
+        if x > sx and x < sx+30 and y > 410 and y < 440 then
+            State.paintSize = sz; return true
+        end
+    end
+    local cx, cy = 20, 50
+    local pw = State.paintSize * State.paintScale
+    if x >= cx and x <= cx+pw and y >= cy and y <= cy+pw and isDown then
+        local px2 = math.floor((x - cx) / State.paintScale) + 1
+        local py2 = math.floor((y - cy) / State.paintScale) + 1
+        if px2 >= 1 and px2 <= State.paintSize and py2 >= 1 and py2 <= State.paintSize then
+            love.graphics.setCanvas(State.paintCanvas)
+            if State.paintCurrentTool == "brush" then
+                love.graphics.setColor(State.paintBrushColor)
+                love.graphics.rectangle("fill", px2-1, py2-1, State.paintSize, State.paintSize)
+            elseif State.paintCurrentTool == "eraser" then
+                love.graphics.setColor(0,0,0,0)
+                love.graphics.rectangle("fill", px2-1, py2-1, State.paintSize, State.paintSize)
+            elseif State.paintCurrentTool == "picker" then
+                local imgData = State.paintCanvas:newImageData()
+                local r,g,b,a = imgData:getPixel(px2-1, py2-1)
+                State.paintBrushColor = {r,g,b}
+                State.paintCurrentTool = "brush"
+            end
+            love.graphics.setCanvas()
             return true
         end
     end
@@ -704,14 +670,13 @@ function saveProject(filename)
             end
         end
     end
-    if State.project.orientation then table.insert(lines, "orientation: " .. State.project.orientation) end
     love.filesystem.write(filename, table.concat(lines, "\n"))
 end
 function loadProject(filename)
     local info = love.filesystem.getInfo(filename)
     if not info then return nil end
     local contents = love.filesystem.read(filename)
-    local project = {scenes = {}, orientation = "portrait"}
+    local project = {scenes = {}}
     local currentScene, currentObject, currentBlock = nil, nil, nil
     for line in contents:gmatch("[^\r\n]+") do
         if line:match("^  %- name: (.+)") then
@@ -744,94 +709,9 @@ function loadProject(filename)
             end
         elseif line:match("^            category: (.+)") then
             if currentBlock then currentBlock.category = line:match("category: (.+)") end
-        elseif line:match("^orientation: (.+)") then
-            project.orientation = line:match("orientation: (.+)")
         end
     end
     return project
-end
-function exportTXT(filename)
-    local lines = {}
-    for si, scene in ipairs(State.project.scenes) do
-        table.insert(lines, "Сцена: " .. scene.name)
-        for oi, obj in ipairs(scene.objects) do
-            table.insert(lines, "  Объект: " .. obj.name)
-            for _, block in ipairs(obj.blocks) do
-                local desc = block.label or block.name
-                if block.param then desc = desc .. " (" .. tostring(block.param) .. ")" end
-                table.insert(lines, "    " .. desc)
-            end
-        end
-    end
-    love.filesystem.write(filename, table.concat(lines, "\n"))
-end
-
-function applyOrientation()
-    if State.project.orientation == "portrait" then
-        love.window.setMode(600, 800, {fullscreen = false, resizable = true})
-    else
-        love.window.setMode(800, 600, {fullscreen = false, resizable = true})
-    end
-end
-
-function scanProjects()
-    local files = love.filesystem.getDirectoryItems(".")
-    State.projects = {}
-    for _, f in ipairs(files) do
-        if f:match("%.cat$") then table.insert(State.projects, f) end
-    end
-end
-function drawProjectMenu()
-    if not State.showProjectMenu then return end
-    love.graphics.setColor(0,0,0,0.8)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Проекты", 10, 10)
-    local y = 40
-    for i, name in ipairs(State.projects) do
-        love.graphics.setColor(0.3,0.3,0.8)
-        love.graphics.rectangle("fill", 10, y, 200, 25)
-        love.graphics.setColor(1,1,1)
-        love.graphics.print(name, 15, y+5)
-        y = y + 30
-    end
-    love.graphics.setColor(0.3,0.7,0.3)
-    love.graphics.rectangle("fill", 10, y, 100, 25)
-    love.graphics.print("Новый", 15, y+5)
-    love.graphics.setColor(0.8,0.3,0.3)
-    love.graphics.rectangle("fill", 120, y, 100, 25)
-    love.graphics.print("Закрыть", 125, y+5)
-end
-function handleProjectMenuClick(x, y)
-    if not State.showProjectMenu then return false end
-    local py = 40
-    for i, name in ipairs(State.projects) do
-        if x >= 10 and x <= 210 and y >= py and y <= py+25 then
-            State.currentProjectFile = name
-            local proj = loadProject(name) or defaultProject()
-            State.project = proj
-            applyOrientation()
-            updateWorkspaceBlocks()
-            State.showProjectMenu = false
-            return true
-        end
-        py = py + 30
-    end
-    if x >= 10 and x <= 110 and y >= py and y <= py+25 then
-        State.project = defaultProject()
-        State.currentProjectFile = "project" .. (#State.projects+1) .. ".cat"
-        saveProject(State.currentProjectFile)
-        applyOrientation()
-        scanProjects()
-        updateWorkspaceBlocks()
-        State.showProjectMenu = false
-        return true
-    end
-    if x >= 120 and x <= 220 and y >= py and y <= py+25 then
-        State.showProjectMenu = false
-        return true
-    end
-    return false
 end
 
 function drawSceneObjects()
@@ -842,6 +722,19 @@ function drawSceneObjects()
             local p2 = State.penPoints[i]
             love.graphics.setColor(p1[3], p1[4], p1[5])
             love.graphics.line(p1[1], p1[2], p2[1], p2[2])
+        end
+    end
+    if State.showImage then
+        local obj = getCurrentObject()
+        if obj and obj.image then
+            if not obj.loadedImage then
+                local file = love.filesystem.newFile(obj.image)
+                if file then obj.loadedImage = love.graphics.newImage(file) end
+            end
+            if obj.loadedImage then
+                love.graphics.setColor(1,1,1)
+                love.graphics.draw(obj.loadedImage, State.cubeX, State.cubeY, math.rad(State.objectAngle), State.objectSize/32, State.objectSize/32, 16, 16)
+            end
         end
     end
     if State.showCube then
@@ -870,10 +763,8 @@ function love.load()
     State.font = love.graphics.getFont()
     love.filesystem.createDirectory("sprites")
     love.filesystem.createDirectory("sounds")
-    scanProjects()
-    local saved = loadProject(State.currentProjectFile) or loadProject("project.yml")
+    local saved = loadProject("project.cat") or loadProject("project.yml")
     State.project = saved or defaultProject()
-    applyOrientation()
     updateWorkspaceBlocks()
     initPaint()
     calculateHeights()
@@ -888,15 +779,9 @@ function love.draw()
         local block = State.workspaceBlocks[State.editingBlockIdx]
         local bx = State.workspaceStartX
         local by = State.workspaceStartY + (State.editingBlockIdx-1)*(State.blockHeight + State.blockSpacing) - State.workspaceScrollY
-        if block.name == "switchScene" then
-            State.scenePickerVisible = true
-            State.scenePickerBlockIdx = State.editingBlockIdx
-            State.editingBlockIdx = nil
-        else
-            love.graphics.setColor(1,1,1)
-            love.graphics.print("Value: " .. safeUTF8(State.editingText), bx, by + State.blockHeight + 5)
-            State.keyboardVisible = true
-        end
+        love.graphics.setColor(1,1,1)
+        love.graphics.print("Value: " .. safeUTF8(State.editingText), bx, by + State.blockHeight + 5)
+        State.keyboardVisible = true
     else
         State.keyboardVisible = false
     end
@@ -904,8 +789,6 @@ function love.draw()
     drawPaint()
     drawButtons()
     drawSceneObjects()
-    drawScenePicker()
-    drawProjectMenu()
     love.graphics.setFont(State.font)
     local msgY = State.workspaceStartY + #State.workspaceBlocks*(State.blockHeight+State.blockSpacing) + 20 - State.workspaceScrollY
     for _, msg in ipairs(State.messages) do
@@ -933,8 +816,6 @@ function love.update(dt)
 end
 function love.mousepressed(x, y, button)
     if State.paintMode then if handlePaintTouch(x, y, true) then return end end
-    if State.scenePickerVisible then if handleScenePickerClick(x, y) then return end end
-    if State.showProjectMenu then if handleProjectMenuClick(x, y) then return end end
     if State.keyboardVisible and handleKeyboardTouch(x, y) then return end
     if checkButtonClick(x, y) then return end
     if y <= 60 and handleTabsClick(x, y) then return end
@@ -961,7 +842,6 @@ function love.mousepressed(x, y, button)
 end
 function love.mousereleased(x, y, button)
     if State.paintMode then return end
-    if State.scenePickerVisible or State.showProjectMenu then return end
     if State.paletteTapBlock and not State.paletteMoved then
         local elapsed = love.timer.getTime() - State.paletteTapTime
         if elapsed < 0.4 then
@@ -976,14 +856,7 @@ function love.mousereleased(x, y, button)
         local elapsed = love.timer.getTime() - State.longPressStartTime
         if elapsed < 0.5 then
             State.editingBlockIdx = State.longPressBlockIdx
-            local block = State.workspaceBlocks[State.longPressBlockIdx]
-            if block.name == "switchScene" then
-                State.scenePickerVisible = true
-                State.scenePickerBlockIdx = State.longPressBlockIdx
-                State.longPressBlockIdx = nil
-                return
-            end
-            State.editingText = tostring(block.param or "")
+            State.editingText = tostring(State.workspaceBlocks[State.longPressBlockIdx].param or "")
             State.keyboardVisible = true
         end
         State.longPressBlockIdx = nil
@@ -1021,6 +894,6 @@ function love.keypressed(key)
             if clip then State.editingText = State.editingText .. safeUTF8(clip) end
         end
     elseif key == "f5" then runProject()
-    elseif key == "f2" then saveProject(State.currentProjectFile)
+    elseif key == "f2" then saveProject("project.cat")
     end
 end
