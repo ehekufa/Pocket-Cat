@@ -136,6 +136,38 @@ State = {
     scriptContentHeight = 0,
     bgColor = {0.12,0.12,0.12},
     copiedBlock = nil,
+    templates = {
+        {
+            name = "Пустой проект",
+            scenes = {{ name = "Сцена 1", bgColor = {0.2,0.2,0.4}, objects = {{ name = "Объект 1", x=200, y=200, image = nil, blocks = {} }} }},
+            orientation = "portrait"
+        },
+        {
+            name = "Платформер",
+            scenes = {{ name = "Уровень 1", bgColor = {0.1,0.3,0.1}, objects = {
+                { name = "Персонаж", x=200, y=300, image = nil, blocks = {
+                    {type="event", name="start", label="при старте", category="event"},
+                    {type="action", name="showImage", label="показать спрайт", category="looks"}
+                }},
+                { name = "Земля", x=200, y=400, image = nil, blocks = {} }
+            } }},
+            orientation = "portrait"
+        },
+        {
+            name = "Кликер",
+            scenes = {{ name = "Главная", bgColor = {0.3,0.1,0.1}, objects = {
+                { name = "Кнопка", x=200, y=300, image = nil, blocks = {
+                    {type="event", name="tap", label="при нажатии", category="event"},
+                    {type="action", name="printText", label="вывести текст", param="+1", category="text"}
+                }}
+            } }},
+            orientation = "portrait"
+        }
+    },
+    showTemplates = false,
+    storeProjects = {},
+    showStore = false,
+    storeURL = "https://raw.githubusercontent.com/твой_юзер/pocketcat_store/main/store.json"
 }
 
 json = {}
@@ -182,13 +214,7 @@ function json.decode(str)
 end
 
 function defaultProject()
-    return {
-        scenes = {{ name = "Сцена 1", bgColor = {0.2,0.2,0.4}, objects = {{ name = "Объект 1", x=200, y=200, image = nil, blocks = {
-            {type="event", name="start", label="при старте", category="event"},
-            {type="action", name="showCube", label="показать куб", category="looks"}
-        }}} }},
-        orientation = "portrait"
-    }
+    return State.templates[1]
 end
 function getCurrentScene()
     if not State.project then return nil end
@@ -234,6 +260,14 @@ function drawToolbar()
     love.graphics.rectangle("fill", 300, 15, 60, 30, 5)
     love.graphics.setColor(1,1,1)
     love.graphics.print("Clear", 310, 22)
+    love.graphics.setColor(0.8,0.5,0.2)
+    love.graphics.rectangle("fill", 370, 15, 60, 30, 5)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Templ", 380, 22)
+    love.graphics.setColor(0.5,0.8,0.3)
+    love.graphics.rectangle("fill", 440, 15, 60, 30, 5)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Store", 450, 22)
 end
 
 function handleToolbarClick(x, y)
@@ -264,6 +298,15 @@ function handleToolbarClick(x, y)
         end
         State.currentObjectIdx = 1
         updateWorkspaceBlocks()
+        return true
+    end
+    if x >= 370 and x <= 430 and y >= 15 and y <= 45 then
+        State.showTemplates = true
+        return true
+    end
+    if x >= 440 and x <= 500 and y >= 15 and y <= 45 then
+        loadStore()
+        State.showStore = true
         return true
     end
     return false
@@ -440,6 +483,107 @@ function drawBlock(block, x, y, isDragging, highlight)
     end
 end
 
+function drawTemplates()
+    if not State.showTemplates then return end
+    love.graphics.setColor(0,0,0,0.8)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Выберите шаблон", 10, 10)
+    for i, t in ipairs(State.templates) do
+        local y = 40 + (i-1)*30
+        love.graphics.setColor(0.3,0.3,0.8)
+        love.graphics.rectangle("fill", 10, y, 200, 25)
+        love.graphics.setColor(1,1,1)
+        love.graphics.print(t.name, 20, y+5)
+    end
+end
+
+function handleTemplatesClick(x, y)
+    if not State.showTemplates then return false end
+    for i, t in ipairs(State.templates) do
+        local ty = 40 + (i-1)*30
+        if x >= 10 and x <= 210 and y >= ty and y <= ty+25 then
+            State.project = t
+            State.currentSceneIdx = 1
+            State.currentObjectIdx = 1
+            updateWorkspaceBlocks()
+            State.showTemplates = false
+            return true
+        end
+    end
+    State.showTemplates = false
+    return true
+end
+
+function loadStore()
+    State.storeProjects = {}
+    local ok, res = pcall(function()
+        local http = require("socket.http")
+        local body, code = http.request(State.storeURL)
+        if code == 200 then
+            return json.decode(body)
+        end
+        return nil
+    end)
+    if ok and res then
+        State.storeProjects = res
+    end
+end
+
+function drawStore()
+    if not State.showStore then return end
+    love.graphics.setColor(0,0,0,0.8)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Магазин проектов", 10, 10)
+    if #State.storeProjects == 0 then
+        love.graphics.print("Нет проектов или нет интернета", 10, 40)
+    else
+        for i, p in ipairs(State.storeProjects) do
+            local y = 40 + (i-1)*40
+            love.graphics.setColor(0.3,0.3,0.8)
+            love.graphics.rectangle("fill", 10, y, 250, 30)
+            love.graphics.setColor(1,1,1)
+            love.graphics.print(p.name, 20, y+5)
+            love.graphics.print("Скачать", 220, y+5)
+        end
+    end
+    love.graphics.setColor(0.8,0.2,0.2)
+    love.graphics.rectangle("fill", 10, 40 + #State.storeProjects*40 + 10, 100, 30)
+    love.graphics.print("Закрыть", 20, 40 + #State.storeProjects*40 + 15)
+end
+
+function handleStoreClick(x, y)
+    if not State.showStore then return false end
+    for i, p in ipairs(State.storeProjects) do
+        local ty = 40 + (i-1)*40
+        if x >= 10 and x <= 260 and y >= ty and y <= ty+30 then
+            if x >= 220 and x <= 260 then
+                local ok, res = pcall(function()
+                    local http = require("socket.http")
+                    local body, code = http.request(p.url)
+                    if code == 200 then
+                        return body
+                    end
+                    return nil
+                end)
+                if ok and res then
+                    love.filesystem.write(p.filename or "downloaded.cat", res)
+                    local saved = loadProject(p.filename or "downloaded.cat")
+                    if saved then State.project = saved; updateWorkspaceBlocks() end
+                end
+                State.showStore = false
+                return true
+            end
+        end
+    end
+    if y >= 40 + #State.storeProjects*40 + 10 and y <= 40 + #State.storeProjects*40 + 40 and x >= 10 and x <= 110 then
+        State.showStore = false
+        return true
+    end
+    return false
+end
+
 function love.load()
     State.font = love.graphics.getFont()
     love.filesystem.createDirectory("sprites")
@@ -470,6 +614,8 @@ function love.draw()
     end
     drawKeyboard()
     drawPaint()
+    drawTemplates()
+    drawStore()
 end
 
 function love.update(dt)
@@ -489,6 +635,8 @@ end
 function love.mousepressed(x, y, button)
     if State.paintMode then if handlePaintTouch(x, y, true) then return end end
     if State.keyboardVisible and handleKeyboardTouch(x, y) then return end
+    if State.showTemplates then if handleTemplatesClick(x, y) then return end end
+    if State.showStore then if handleStoreClick(x, y) then return end end
     if handleToolbarClick(x, y) then return end
     if handleSceneClick(x, y) then return end
     if handleEditorPanelClick(x, y) then return end
