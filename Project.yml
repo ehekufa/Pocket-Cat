@@ -1,0 +1,5 @@
+blocks:
+  - type: event
+    name: start
+  - type: action
+    name: cube
