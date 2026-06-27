@@ -777,7 +777,7 @@ function handlePaintTouch(x, y, isDown)
         local pyc = math.floor((y - cy) / State.paintScale) + 1
         if pxc >= 1 and pxc <= State.paintWidth and pyc >= 1 and pyc <= State.paintHeight then
             love.graphics.setCanvas(State.paintCanvas)
-            local brushSize = State.paintSize
+            local brushSize = State.paintSize or 1
             if State.paintCurrentTool == "brush" or State.paintCurrentTool == "eraser" then
                 local alpha = (State.paintCurrentTool == "eraser") and 0 or 1
                 for dx = -brushSize, brushSize do
@@ -798,7 +798,7 @@ function handlePaintTouch(x, y, isDown)
                     State.lineStart = {pxc, pyc}
                 else
                     love.graphics.setColor(State.paintBrushColor)
-                    love.graphics.setLineWidth(State.paintSize)
+                    love.graphics.setLineWidth(State.paintSize or 1)
                     love.graphics.line(State.lineStart[1], State.lineStart[2], pxc, pyc)
                     love.graphics.setCanvas()
                     State.lineStart = nil
@@ -964,6 +964,7 @@ function love.load()
     recalcPaintScale()
     calculateHeights()
     State.bgColor = {0.1,0.1,0.1}
+    if not State.paintSize then State.paintSize = 1 end
 end
 
 function love.draw()
