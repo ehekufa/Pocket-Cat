@@ -428,11 +428,31 @@ function drawKeyboard()
     love.graphics.setColor(1,1,1)
     love.graphics.rectangle("line", doneX, swY, 60, 30, 6)
     love.graphics.printf("Done", doneX, swY+8, 60, "center")
+    -- крестик закрыть
+    local closeX = kx + kw + 5
+    local closeY = ky - 10
+    love.graphics.setColor(1,0,0)
+    love.graphics.rectangle("fill", closeX, closeY, 30, 30, 5)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("X", closeX+8, closeY+5)
 end
 function handleKeyboardTouch(x, y)
     if not State.keyboardVisible then return false end
     local kx, ky = State.keyboardPosX, State.keyboardPosY
     local keys = (State.keyboardMode == "digits" and State.digitsKeys or State.keyboardMode == "ru" and State.ruKeys or State.enKeys)
+    local cols = 0
+    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
+    local kw = cols * (State.keyW + State.keySpacing) + State.keySpacing
+    local closeX = kx + kw + 5
+    local closeY = ky - 10
+    if x >= closeX and x <= closeX+30 and y >= closeY and y <= closeY+30 then
+        State.keyboardVisible = false
+        State.editingBlockIdx = nil
+        State.editingText = ""
+        State.paintCustomStep = 0
+        State.paintCustomInputText = ""
+        return true
+    end
     for i, row in ipairs(keys) do
         for j, char in ipairs(row) do
             local bx = kx + State.keySpacing + (j-1)*(State.keyW + State.keySpacing)
@@ -451,10 +471,7 @@ function handleKeyboardTouch(x, y)
         local bx = kx + State.keySpacing + (i-1)*(55 + State.keySpacing)
         if x >= bx and x <= bx+55 and y >= swY and y <= swY+30 then State.keyboardMode = m[2]; return true end
     end
-    local cols = 0
-    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
-    local totalW = cols * (State.keyW + State.keySpacing) + State.keySpacing
-    local doneX = kx + totalW - 70
+    local doneX = kx + kw - 70
     local pasteX = doneX - 75
     if x >= pasteX and x <= pasteX+65 and y >= swY and y <= swY+30 then
         local clip = love.system.getClipboardText()
@@ -973,7 +990,7 @@ function love.draw()
     drawPalette()
     drawWorkspace()
     drawTabs()
-    if State.editingBlockIdx and not State.paintMode and not State.paintCustomStep then
+    if State.editingBlockIdx and not State.paintMode and State.paintCustomStep == 0 then
         local block = State.workspaceBlocks[State.editingBlockIdx]
         love.graphics.setColor(0,0,0,0.7)
         love.graphics.rectangle("fill", 10, 10, 200, 40, 5)
@@ -1100,7 +1117,7 @@ function love.textinput(t)
     if State.paintCustomStep > 0 and State.keyboardVisible then
         State.paintCustomInputText = State.paintCustomInputText .. t
         State.editingText = State.paintCustomInputText
-    elseif State.editingBlockIdx and not State.paintCustomStep then
+    elseif State.editingBlockIdx and State.paintCustomStep == 0 then
         State.editingText = State.editingText .. t
     end
 end
