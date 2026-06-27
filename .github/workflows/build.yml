@@ -1,15 +1,14 @@
-name: Build_PocketCat_Android_Release
+name: Build PocketCat Debug APK (fast)
 
 on:
   push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  build-android-release:
+  build-debug:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    outputs:
-      apk-name: ${{ steps.set-output.outputs.apk-name }}
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
@@ -19,56 +18,59 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
+      # Кешируем NDK
       - uses: actions/cache@v4
         with:
           path: ${{ env.ANDROID_HOME }}/ndk/25.2.9519653
-          key: ndk-25.2.9519653-v1
+          key: ndk-25.2.9519653-v2
 
-      - name: Install NDK
+      - name: Install NDK (if not cached)
         run: |
           if [ ! -d "$ANDROID_HOME/ndk/25.2.9519653" ]; then
             yes | sdkmanager "ndk;25.2.9519653"
           fi
 
-      - name: Export NDK
+      - name: Export NDK path
         run: |
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
           echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
 
+      # Кешируем клон love-android
       - uses: actions/cache@v4
         with:
           path: love-android
-          key: love-android-src-v1
+          key: love-android-src-v2
 
-      - name: Clone love-android
+      - name: Clone love-android (if not cached)
         run: |
           if [ ! -f "love-android/gradlew" ]; then
-            git clone --recursive --depth 1 https://github.com/love2d/love-android.git
+            git clone --depth 1 --recursive https://github.com/love2d/love-android.git
           fi
 
-      # НЕ меняем applicationId, оставляем org.love2d.android (стандартный)
-
+      # Кешируем Gradle
       - uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: gradle-v1
+          key: gradle-${{ runner.os }}-${{ hashFiles('love-android/**/*.gradle*', 'love-android/**/gradle-wrapper.properties') }}-v1
 
+      # Кешируем нативную сборку
       - uses: actions/cache@v4
         with:
           path: |
             love-android/app/.cxx
             love-android/app/build
-          key: native-v1
+          key: native-${{ runner.os }}-${{ hashFiles('love-android/app/build.gradle', 'main.lua', 'project.yml') }}-v1
 
       - name: Package game.love
         run: |
           zip -9 -r game.love . -x "*.git*" -x ".github/*" -x "love-android/*" -x "*.yml"
 
-      - name: Embed game
+      - name: Embed game.love
         run: |
           mkdir -p love-android/app/src/embed/assets
           cp game.love love-android/app/src/embed/assets/game.love
@@ -78,29 +80,12 @@ jobs:
           sed -i '/abiFilters/d' love-android/app/build.gradle
           sed -i '/defaultConfig {/a\        ndk { abiFilters "arm64-v8a" }' love-android/app/build.gradle
 
-      - name: Optimize Gradle
-        run: |
-          cat >> love-android/gradle.properties << 'EOF'
-          org.gradle.jvmargs=-Xmx6g
-          org.gradle.parallel=true
-          org.gradle.caching=true
-          org.gradle.daemon=false
-          EOF
-
-      - name: Build Release APK (unsigned)
+      - name: Build Debug APK
         working-directory: love-android
-        run: ./gradlew assembleEmbedNoRecordRelease --no-daemon --parallel --console=plain
+        run: ./gradlew assembleEmbedNoRecordDebug --no-daemon --parallel --console=plain
 
-      - name: Collect APK
-        id: set-output
-        run: |
-          APK=$(find love-android -name "*.apk" | head -1)
-          APK_NAME="PocketCat_$(date +'%Y%m%d_%H%M').apk"
-          cp "$APK" "$APK_NAME"
-          echo "apk-name=$APK_NAME" >> $GITHUB_OUTPUT
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: PocketCat_APK
-          path: PocketCat_*.apk
-          compression-level: 0
+          name: PocketCat-Debug-APK
+          path: love-android/app/build/outputs/apk/debug/*.apk
