@@ -19,28 +19,28 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Установить Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 33
-          build-tools: 33.0.0
-
-      - name: Установить NDK 23.1.7779620 и CMake 3.22.1
+      # Используем предустановленный sdkmanager, без setup-android
+      - name: Установить компоненты Android SDK
         run: |
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "ndk;23.1.7779620"
-          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "cmake;3.22.1"
+          # Соглашаемся с лицензиями
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+          # Устанавливаем платформу, build-tools, NDK и CMake
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
+            "platforms;android-33" \
+            "build-tools;33.0.0" \
+            "ndk;23.1.7779620" \
+            "cmake;3.22.1"
 
       - name: Клонировать love-android шаблон
         run: git clone https://github.com/love2d/love-android.git --depth 1
 
       - name: Заменить ndkVersion в build.gradle на 23.1.7779620
-        run: |
-          sed -i 's/ndkVersion ".*"/ndkVersion "23.1.7779620"/' love-android/app/build.gradle
+        run: sed -i 's/ndkVersion ".*"/ndkVersion "23.1.7779620"/' love-android/app/build.gradle
 
       - name: Настроить local.properties
         run: |
-          echo "ndk.dir=$ANDROID_SDK_ROOT/ndk/23.1.7779620" > love-android/local.properties
-          echo "sdk.dir=$ANDROID_SDK_ROOT" >> love-android/local.properties
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > love-android/local.properties
+          echo "ndk.dir=$ANDROID_SDK_ROOT/ndk/23.1.7779620" >> love-android/local.properties
 
       - name: Собрать .love и подготовить assets
         run: |
