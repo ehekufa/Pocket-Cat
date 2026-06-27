@@ -1,209 +1,264 @@
--- Pocket Cat IDE v0.7 – Кнопка запуска в правом верхнем углу, без сохранения/загрузки,
--- встроенная клавиатура для телефонов.
+-- Pocket Cat 2.0 – всё в одном main.lua
+-- Сцены, объекты, Paint, кастомная клавиатура, сохранение/загрузка, выполнение
 
--- ========== КАТЕГОРИИ И ЦВЕТА ==========
-local catColors = {
-    event    = {0.9, 0.6, 0.2},
-    motion   = {0.2, 0.6, 0.9},
-    looks    = {0.7, 0.3, 0.9},
-    sound    = {0.3, 0.9, 0.4},
-    control  = {1.0, 0.8, 0.2},
-    variables= {0.9, 0.2, 0.2},
-    draw     = {0.2, 0.8, 0.8},
-    text     = {1.0, 1.0, 1.0},
-    sensing  = {0.7, 0.7, 0.7},
+-- ======================== ГЛОБАЛЬНОЕ СОСТОЯНИЕ ========================
+State = {
+    -- проект
+    project = nil,
+    currentSceneIdx = 1,
+    currentObjectIdx = 1,
+
+    -- блоки
+    catColors = {
+        event    = {0.9, 0.6, 0.2},
+        motion   = {0.2, 0.6, 0.9},
+        looks    = {0.7, 0.3, 0.9},
+        sound    = {0.3, 0.9, 0.4},
+        control  = {1.0, 0.8, 0.2},
+        variables= {0.9, 0.2, 0.2},
+        draw     = {0.2, 0.8, 0.8},
+        text     = {1.0, 1.0, 1.0},
+        sensing  = {0.7, 0.7, 0.7},
+    },
+    paletteBlocks = {
+        {type="event", name="start",   label="при старте",           category="event"},
+        {type="event", name="tap",     label="при нажатии",          category="event"},
+        {type="event", name="release", label="при отпускании",       category="event"},
+        {type="event", name="touch",   label="при касании",          category="event"},
+        {type="action", name="changeX",label="изменить X на",        param=10, category="motion"},
+        {type="action", name="changeY",label="изменить Y на",        param=10, category="motion"},
+        {type="action", name="setX",   label="установить X в",       param=200, category="motion"},
+        {type="action", name="setY",   label="установить Y в",       param=200, category="motion"},
+        {type="action", name="turn",   label="повернуть на",         param=15, category="motion"},
+        {type="action", name="showCube",   label="показать куб",      category="looks"},
+        {type="action", name="showSphere", label="показать сферу",    category="looks"},
+        {type="action", name="hide",   label="скрыть объект",         category="looks"},
+        {type="action", name="show",   label="показать объект",       category="looks"},
+        {type="action", name="setColor",   label="установить цвет",  param="green", category="looks"},
+        {type="action", name="setSize",    label="установить размер", param=50, category="looks"},
+        {type="action", name="wait",   label="ждать",                 param=1, category="control"},
+        {type="action", name="repeat", label="повторить 3 раза",      param=3, category="control"},
+        {type="action", name="ifTap",  label="если нажато",           category="control"},
+        {type="action", name="stopAll",label="остановить всё",        category="control"},
+        {type="action", name="printText",label="вывести текст",       param="Привет!", category="text"},
+    },
+
+    -- рабочее пространство
+    workspaceBlocks = {},
+    paletteWidth = 200,
+    paletteScrollY = 0,
+    paletteContentHeight = 0,
+    workspaceStartX = 210,
+    workspaceStartY = 80,
+    blockWidth = 175,
+    blockHeight = 34,
+    blockSpacing = 8,
+    workspaceScrollY = 0,
+    workspaceContentHeight = 0,
+
+    -- перетаскивание
+    draggingBlock = nil,
+    dragFromPalette = false,
+
+    -- долгое нажатие
+    longPressBlockIdx = nil,
+    longPressStartTime = 0,
+    longPressMoved = false,
+
+    -- редактирование
+    editingBlockIdx = nil,
+    editingText = "",
+
+    -- кастомная клавиатура
+    keyboardMode = "digits",
+    keyboardVisible = false,
+    keyboardHeight = 220,
+    keyboardPosX = 0,
+    keyboardPosY = 0,
+    keyW = 44,
+    keyH = 44,
+    keySpacing = 4,
+    digitsKeys = {{"1","2","3"},{"4","5","6"},{"7","8","9"},{".","0","⌫"}},
+    ruKeys = {{"й","ц","у","к","е","н","г","ш","щ","з","х","ъ"},{"ф","ы","в","а","п","р","о","л","д","ж","э"},{"я","ч","с","м","и","т","ь","б","ю","ё"}},
+    enKeys = {{"q","w","e","r","t","y","u","i","o","p"},{"a","s","d","f","g","h","j","k","l"},{"z","x","c","v","b","n","m"}},
+
+    -- сцены и объекты (инициализация позже)
+    -- paint
+    paintMode = false,
+    paintCanvas = nil,
+    paintSize = 32,
+    paintScale = 10,
+    paintBrushColor = {1,1,1},
+    paintCurrentTool = "brush",
+
+    -- куб/сфера
+    showCube = false,
+    showSphere = false,
+    cubeX = 200, cubeY = 300,
+    sphereX = 400, sphereY = 300,
+    objectAngle = 0,
+    objectColor = {0.2, 0.8, 0.4},
+    objectSize = 50,
+    cubeVertices = {{-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},{-1,-1,1},{1,-1,1},{1,1,1},{-1,1,1}},
+    cubeEdges = {{1,2},{2,3},{3,4},{4,1},{5,6},{6,7},{7,8},{8,5},{1,5},{2,6},{3,7},{4,8}},
+
+    -- выполнение
+    eventHandlers = {},
+    stopAll = false,
+    waitTimer = 0,
+    isTapped = false,
+    isReleased = false,
+    touchActive = false,
+
+    -- рисование и текст
+    penColor = {1,0,0},
+    drawCommands = {},
+    messages = {},
+    vars = {},
+    font = nil,
+    fontSize = 16,
 }
 
--- ========== ПАЛИТРА БЛОКОВ (без изменений) ==========
-local paletteBlocks = {
-    -- События
-    {type="event", name="start",      label="при старте",           category="event"},
-    {type="event", name="tap",        label="при нажатии",          category="event"},
-    {type="event", name="release",    label="при отпускании",       category="event"},
-    {type="event", name="touch",      label="при касании",          category="event"},
-    {type="event", name="mousemove",  label="при движении мыши",    category="event"},
-    {type="event", name="key_a",      label="при нажатии A",        category="event"},
-    {type="event", name="key_b",      label="при нажатии B",        category="event"},
-    -- Движение
-    {type="action", name="changeX",   label="изменить X на",        param=10, category="motion"},
-    {type="action", name="changeY",   label="изменить Y на",        param=10, category="motion"},
-    {type="action", name="setX",      label="установить X в",       param=200, category="motion"},
-    {type="action", name="setY",      label="установить Y в",       param=200, category="motion"},
-    {type="action", name="turn",      label="повернуть на",          param=15, category="motion"},
-    {type="action", name="setAngle",  label="установить угол",      param=0,  category="motion"},
-    {type="action", name="glide",     label="скользить 1 сек в X:", param=300, category="motion"},
-    {type="action", name="bounceEdge",label="если край – оттолкнуться", category="motion"},
-    -- Внешность
-    {type="action", name="showCube",  label="показать куб",          category="looks"},
-    {type="action", name="showSphere",label="показать сферу",        category="looks"},
-    {type="action", name="hide",      label="скрыть объект",         category="looks"},
-    {type="action", name="show",      label="показать объект",       category="looks"},
-    {type="action", name="setColor",  label="установить цвет",      param="green", category="looks"},
-    {type="action", name="setAlpha",  label="прозрачность",          param=0.5, category="looks"},
-    {type="action", name="changeSize",label="изменить размер на",    param=10, category="looks"},
-    {type="action", name="setSize",   label="установить размер",     param=50, category="looks"},
-    {type="action", name="nextBg",    label="следующий фон",         category="looks"},
-    -- Звук
-    {type="action", name="playSound", label="играть звук",           param="meow", category="sound"},
-    {type="action", name="stopSounds",label="остановить звуки",      category="sound"},
-    {type="action", name="changeVol", label="изменить громкость на", param=0.1, category="sound"},
-    {type="action", name="setVol",    label="установить громкость",  param=0.5, category="sound"},
-    -- Управление
-    {type="action", name="wait",      label="ждать",                 param=1, category="control"},
-    {type="action", name="repeat",    label="повторить 3 раза",      param=3, category="control"},
-    {type="action", name="ifTap",     label="если нажато",           category="control"},
-    {type="action", name="stopAll",   label="остановить всё",        category="control"},
-    -- Переменные
-    {type="action", name="setVar",    label="установить [v] в",      param="x=10", category="variables"},
-    {type="action", name="changeVar", label="изменить [v] на",       param="x=5", category="variables"},
-    {type="action", name="showVar",   label="показать переменную",   param="x", category="variables"},
-    {type="action", name="hideVar",   label="скрыть переменную",     param="x", category="variables"},
-    -- Рисование
-    {type="action", name="line",      label="линия (0,0)→(100,100)", category="draw"},
-    {type="action", name="rect",      label="прямоугольник",         category="draw"},
-    {type="action", name="ellipse",   label="эллипс",               category="draw"},
-    {type="action", name="clear",     label="очистить экран",        category="draw"},
-    {type="action", name="setPenColor",label="цвет пера",            param="red", category="draw"},
-    -- Текст
-    {type="action", name="printText", label="вывести текст",         param="Привет!", category="text"},
-    {type="action", name="setFont",   label="установить шрифт",      param="default", category="text"},
-    {type="action", name="setFontSize",label="размер шрифта",        param=16, category="text"},
-    -- Датчики
-    {type="action", name="mouseX",    label="мышь X",               category="sensing"},
-    {type="action", name="mouseY",    label="мышь Y",               category="sensing"},
-    {type="action", name="mouseDown", label="нажата мышь?",          category="sensing"},
-    {type="action", name="touchX",    label="касание X",             category="sensing"},
-    {type="action", name="touchY",    label="касание Y",             category="sensing"},
-    {type="action", name="accelX",    label="акселерометр X",        category="sensing"},
-}
-
--- ========== РАБОЧЕЕ ПРОСТРАНСТВО ==========
-local workspaceBlocks = {}
-local draggingBlock = nil
-local dragFromPalette = false
-local blockWidth, blockHeight = 175, 34
-local paletteWidth = 200
-local paletteScrollY = 0
-local paletteContentHeight = 0
-local workspaceStartX = paletteWidth + 10
-local workspaceStartY = 60
-local blockSpacing = 8
-local workspaceScrollY = 0
-local workspaceContentHeight = 0
-
--- ========== РЕДАКТИРОВАНИЕ ПАРАМЕТРА ==========
-local editingBlockIdx = nil
-local editingText = ""
-local editFieldW = 120
-local editFieldH = 30
-
--- ========== ВСТРОЕННАЯ КЛАВИАТУРА (для телефонов) ==========
-local keyboardMode = "digits"
-local keyboardPosX = nil
-local keyboardPosY = 10
-local keyW, keyH = 40, 40
-local keySpacing = 4
-local keyboardVisible = false
-
-local digitsKeys = {
-    {"1","2","3"},
-    {"4","5","6"},
-    {"7","8","9"},
-    {".","0","⌫"}
-}
-local ruKeys = {
-    {"й","ц","у","к","е","н","г","ш","щ","з","х","ъ"},
-    {"ф","ы","в","а","п","р","о","л","д","ж","э"},
-    {"я","ч","с","м","и","т","ь","б","ю","ё"}
-}
-local enKeys = {
-    {"q","w","e","r","t","y","u","i","o","p"},
-    {"a","s","d","f","g","h","j","k","l"},
-    {"z","x","c","v","b","n","m"}
-}
-
--- ========== КУБ И СФЕРА ==========
-local cubeVertices = {
-    {-1,-1,-1}, { 1,-1,-1}, { 1, 1,-1}, {-1, 1,-1},
-    {-1,-1, 1}, { 1,-1, 1}, { 1, 1, 1}, {-1, 1, 1}
-}
-local cubeEdges = {
-    {1,2},{2,3},{3,4},{4,1},
-    {5,6},{6,7},{7,8},{8,5},
-    {1,5},{2,6},{3,7},{4,8}
-}
-function drawSphere(x, y, r)
-    love.graphics.circle("line", x, y, r, 24)
+-- ======================== ПРОЕКТ (сцены/объекты) ========================
+function defaultProject()
+    return {
+        scenes = {
+            {
+                name = "Сцена 1",
+                bgColor = {0.2, 0.2, 0.4},
+                objects = {
+                    {
+                        name = "Объект 1",
+                        image = nil,
+                        blocks = {
+                            {type="event", name="start", label="при старте", category="event"},
+                            {type="action", name="showCube", label="показать куб", category="looks"},
+                        }
+                    }
+                }
+            }
+        }
+    }
 end
 
--- ========== СОСТОЯНИЕ СЦЕНЫ ==========
-local showCube, showSphere = false, false
-local cubeX, cubeY = 200, 300
-local sphereX, sphereY = 400, 300
-local objectAngle = 0
-local objectColor = {0.2, 0.8, 0.4}
-local objectAlpha = 1
-local objectSize = 50
-local isTapped = false
-local isReleased = false
-local touchActive = false
-local mouseMoved = false
-local keyAPressed = false
-local keyBPressed = false
-local penColor = {1,0,0}
-local drawCommands = {}
-local messages = {}
-local vars = {}
-local font = love.graphics.getFont()
-local fontSize = 16
-local waitTimer = 0
-local stopAll = false
+function getCurrentScene()
+    if not State.project then return nil end
+    return State.project.scenes[State.currentSceneIdx]
+end
 
--- ========== YAML ==========
-function loadYAML(path)
-    local info = love.filesystem.getInfo(path)
-    if not info then return nil end
-    local contents = love.filesystem.read(path)
-    local blocks = {}
-    for line in contents:gmatch("[^\r\n]+") do
-        local typ = line:match("type:%s*(%w+)")
-        local name = line:match("name:%s*(%w+)")
-        if typ and name then
-            local param = line:match("param:%s*(.+)")
-            if param then
-                param = param:gsub("^%s*(.-)%s*$", "")
-                if tonumber(param) then param = tonumber(param) end
+function getCurrentObject()
+    local scene = getCurrentScene()
+    if not scene then return nil end
+    return scene.objects[State.currentObjectIdx]
+end
+
+function updateWorkspaceBlocks()
+    local obj = getCurrentObject()
+    State.workspaceBlocks = obj and obj.blocks or {}
+    calculateHeights()
+end
+
+-- ======================== ПАЛИТРА И РАБОЧАЯ ОБЛАСТЬ ========================
+function calculateHeights()
+    local y = 10
+    local lastCat = nil
+    for _, b in ipairs(State.paletteBlocks) do
+        if b.category ~= lastCat then
+            y = y + 20
+            lastCat = b.category
+        end
+        y = y + State.blockHeight + 6
+    end
+    State.paletteContentHeight = y
+    State.workspaceContentHeight = State.workspaceStartY + #State.workspaceBlocks * (State.blockHeight + State.blockSpacing) + 100
+end
+
+function drawBlock(block, x, y, isDragging, highlight)
+    local color = State.catColors[block.category] or {0.4,0.4,0.8}
+    love.graphics.setColor(color)
+    love.graphics.rectangle("fill", x, y, State.blockWidth, State.blockHeight, 6)
+    love.graphics.setColor(0,0,0)
+    love.graphics.rectangle("line", x, y, State.blockWidth, State.blockHeight, 6)
+    if highlight then
+        love.graphics.setColor(1,1,0)
+        love.graphics.rectangle("line", x, y, State.blockWidth, State.blockHeight, 6)
+    end
+    love.graphics.setColor(1,1,1)
+    love.graphics.print(block.label or block.name, x+8, y+8)
+    if isDragging then
+        love.graphics.setColor(1,1,1,0.6)
+        love.graphics.rectangle("line", x, y, State.blockWidth, State.blockHeight, 6)
+    end
+    love.graphics.setColor(1,1,1)
+end
+
+function drawPalette()
+    love.graphics.setScissor(0, 0, State.paletteWidth, love.graphics.getHeight())
+    love.graphics.setColor(0.15,0.15,0.15)
+    love.graphics.rectangle("fill", 0, 0, State.paletteWidth, love.graphics.getHeight())
+
+    local y = 10 - State.paletteScrollY
+    local lastCat = nil
+    for _, b in ipairs(State.paletteBlocks) do
+        if b.category ~= lastCat then
+            love.graphics.setColor(1,1,1)
+            love.graphics.print(b.category, 5, y)
+            y = y + 20
+            lastCat = b.category
+        end
+        if y + State.blockHeight > 0 and y < love.graphics.getHeight() then
+            drawBlock(b, 5, y, false, false)
+        end
+        y = y + State.blockHeight + 6
+    end
+    love.graphics.setScissor()
+end
+
+function drawWorkspace()
+    love.graphics.setScissor(State.paletteWidth, 0, love.graphics.getWidth()-State.paletteWidth, love.graphics.getHeight())
+    love.graphics.setColor(0.1,0.1,0.1)
+    love.graphics.rectangle("fill", State.paletteWidth, 0, love.graphics.getWidth()-State.paletteWidth, love.graphics.getHeight())
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Рабочая область", State.workspaceStartX, 10 - State.workspaceScrollY)
+
+    for i, b in ipairs(State.workspaceBlocks) do
+        local bx = State.workspaceStartX
+        local by = State.workspaceStartY + (i-1)*(State.blockHeight + State.blockSpacing) - State.workspaceScrollY
+        local highlight = (State.editingBlockIdx == i)
+        if not (State.draggingBlock == b and not State.dragFromPalette) then
+            if by + State.blockHeight > 0 and by < love.graphics.getHeight() then
+                drawBlock(b, bx, by, false, highlight)
             end
-            local cat = line:match("category:%s*(%w+)")
-            table.insert(blocks, {type=typ, name=name, param=param, category=cat})
         end
     end
-    return blocks
-end
 
-function saveYAML(path, blocks)
-    local lines = {"blocks:"}
-    for _, b in ipairs(blocks) do
-        table.insert(lines, "  - type: " .. b.type)
-        table.insert(lines, "    name: " .. b.name)
-        if b.param then table.insert(lines, "    param: " .. tostring(b.param)) end
-        if b.category then table.insert(lines, "    category: " .. b.category) end
+    if State.draggingBlock then
+        local mx, my = love.mouse.getPosition()
+        drawBlock(State.draggingBlock, mx-State.blockWidth/2, my-State.blockHeight/2, true, false)
     end
-    love.filesystem.write(path, table.concat(lines, "\n"))
+    love.graphics.setScissor()
 end
 
--- ========== ВЫПОЛНЕНИЕ ==========
-local eventHandlers = {}
+-- ======================== КНОПКА ЗАПУСКА ========================
+function drawRunButton()
+    local rx = love.graphics.getWidth() - 50
+    local ry = 15
+    love.graphics.setColor(0,1,0)
+    love.graphics.circle("fill", rx, ry, 22)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("▶", rx-12, ry-10, 0, 1.6)
+end
 
+-- ======================== ВЫПОЛНЕНИЕ БЛОКОВ ========================
 function compileScript()
-    eventHandlers = {}
+    State.eventHandlers = {}
     local currentEvent = nil
-    for _, block in ipairs(workspaceBlocks) do
+    for _, block in ipairs(State.workspaceBlocks) do
         if block.type == "event" then
             currentEvent = block.name
-            eventHandlers[currentEvent] = eventHandlers[currentEvent] or {}
+            State.eventHandlers[currentEvent] = State.eventHandlers[currentEvent] or {}
         elseif block.type == "action" and currentEvent then
-            table.insert(eventHandlers[currentEvent], block)
+            table.insert(State.eventHandlers[currentEvent], block)
         end
     end
 end
@@ -211,71 +266,30 @@ end
 function executeActions(actions)
     if not actions then return false end
     local i = 1
-    while i <= #actions and not stopAll do
+    while i <= #actions and not State.stopAll do
         local act = actions[i]
         local p = act.param
-        if act.name == "changeX" then cubeX = cubeX + (tonumber(p) or 10)
-        elseif act.name == "changeY" then cubeY = cubeY + (tonumber(p) or 10)
-        elseif act.name == "setX" then cubeX = tonumber(p) or 200
-        elseif act.name == "setY" then cubeY = tonumber(p) or 200
-        elseif act.name == "turn" then objectAngle = objectAngle + (tonumber(p) or 15)
-        elseif act.name == "setAngle" then objectAngle = tonumber(p) or 0
-        elseif act.name == "glide" then cubeX = tonumber(p) or 300
-        elseif act.name == "bounceEdge" then
-            if cubeX < 0 or cubeX > love.graphics.getWidth() then cubeX = math.max(0, math.min(cubeX, love.graphics.getWidth())) end
-            if cubeY < 0 or cubeY > love.graphics.getHeight() then cubeY = math.max(0, math.min(cubeY, love.graphics.getHeight())) end
-        elseif act.name == "showCube" then showCube = true
-        elseif act.name == "showSphere" then showSphere = true
-        elseif act.name == "hide" then showCube, showSphere = false, false
-        elseif act.name == "show" then showCube, showSphere = true, true
+        if act.name == "changeX" then State.cubeX = State.cubeX + (tonumber(p) or 10)
+        elseif act.name == "changeY" then State.cubeY = State.cubeY + (tonumber(p) or 10)
+        elseif act.name == "setX" then State.cubeX = tonumber(p) or 200
+        elseif act.name == "setY" then State.cubeY = tonumber(p) or 200
+        elseif act.name == "turn" then State.objectAngle = State.objectAngle + (tonumber(p) or 15)
+        elseif act.name == "showCube" then State.showCube = true
+        elseif act.name == "showSphere" then State.showSphere = true
+        elseif act.name == "hide" then State.showCube, State.showSphere = false, false
+        elseif act.name == "show" then State.showCube, State.showSphere = true, true
         elseif act.name == "setColor" then
-            if p == "green" then objectColor = {0.2,0.8,0.4}
-            elseif p == "red" then objectColor = {0.9,0.2,0.2}
-            elseif p == "blue" then objectColor = {0.2,0.4,1.0}
+            if p == "green" then State.objectColor = {0.2,0.8,0.4}
+            elseif p == "red" then State.objectColor = {0.9,0.2,0.2}
+            elseif p == "blue" then State.objectColor = {0.2,0.4,1.0}
             end
-        elseif act.name == "setAlpha" then objectAlpha = math.max(0, math.min(1, tonumber(p) or 1))
-        elseif act.name == "changeSize" then objectSize = objectSize + (tonumber(p) or 10)
-        elseif act.name == "setSize" then objectSize = tonumber(p) or 50
-        elseif act.name == "playSound" then -- love.audio.newSource(p..".ogg") (заглушка)
-        elseif act.name == "stopSounds" then love.audio.stop()
-        elseif act.name == "changeVol" then
-        elseif act.name == "setVol" then
-        elseif act.name == "wait" then waitTimer = tonumber(p) or 1; return true
+        elseif act.name == "setSize" then State.objectSize = tonumber(p) or 50
+        elseif act.name == "wait" then State.waitTimer = tonumber(p) or 1; return true
         elseif act.name == "repeat" then
-            local times = tonumber(p) or 3
-            for _=1, times do
-            end
         elseif act.name == "ifTap" then
-            if not isTapped then return true end
-        elseif act.name == "stopAll" then stopAll = true; return true
-        elseif act.name == "setVar" then
-            local name, val = p:match("([%w]+)%s*=%s*(.+)")
-            if name then vars[name] = tonumber(val) or val end
-        elseif act.name == "changeVar" then
-            local name, val = p:match("([%w]+)%s*=%s*(.+)")
-            if name then vars[name] = (vars[name] or 0) + (tonumber(val) or 0) end
-        elseif act.name == "showVar" then
-            local name = p or "x"
-            table.insert(messages, name .. " = " .. tostring(vars[name] or 0))
-        elseif act.name == "line" then table.insert(drawCommands, {"line", 0,0,100,100})
-        elseif act.name == "rect" then table.insert(drawCommands, {"rect", 50,50,60,40})
-        elseif act.name == "ellipse" then table.insert(drawCommands, {"ellipse", 100,100,30,20})
-        elseif act.name == "clear" then drawCommands = {}
-        elseif act.name == "setPenColor" then
-            if p == "red" then penColor = {1,0,0}
-            elseif p == "green" then penColor = {0,1,0}
-            elseif p == "blue" then penColor = {0,0,1}
-            end
-        elseif act.name == "printText" then table.insert(messages, tostring(p or "Привет!"))
-        elseif act.name == "setFont" then font = love.graphics.newFont(p or 16)
-        elseif act.name == "setFontSize" then fontSize = tonumber(p) or 16; font = love.graphics.newFont(fontSize)
-        elseif act.name == "mouseX" then table.insert(messages, "mouse X: "..love.mouse.getX())
-        elseif act.name == "mouseY" then table.insert(messages, "mouse Y: "..love.mouse.getY())
-        elseif act.name == "mouseDown" then table.insert(messages, "mouse down: "..tostring(love.mouse.isDown(1)))
-        elseif act.name == "touchX" then table.insert(messages, "touch X: "..(love.touch.getTouches()[1] and love.touch.getPosition(1)))
-        elseif act.name == "touchY" then
-        elseif act.name == "accelX" then
-            table.insert(messages, "accel X (orientation: "..(love.system.getOrientation() or "unknown")..")")
+            if not State.isTapped then return true end
+        elseif act.name == "stopAll" then State.stopAll = true; return true
+        elseif act.name == "printText" then table.insert(State.messages, tostring(p or "Привет!"))
         end
         i = i + 1
     end
@@ -283,489 +297,552 @@ function executeActions(actions)
 end
 
 function runProject()
-    stopAll = false
-    drawCommands = {}
-    messages = {}
-    vars = {}
-    waitTimer = 0
+    State.stopAll = false
+    State.drawCommands = {}
+    State.messages = {}
+    State.vars = {}
+    State.waitTimer = 0
     compileScript()
-    if eventHandlers["start"] then
-        executeActions(eventHandlers["start"])
+    if State.eventHandlers["start"] then
+        executeActions(State.eventHandlers["start"])
     end
 end
 
--- ========== РАСЧЁТ ВЫСОТ ==========
-function calculateHeights()
-    local y = 10
-    local lastCat = nil
-    for _, b in ipairs(paletteBlocks) do
-        if b.category ~= lastCat then
-            y = y + 20
-            lastCat = b.category
-        end
-        y = y + blockHeight + 6
-    end
-    paletteContentHeight = y
-    workspaceContentHeight = workspaceStartY + #workspaceBlocks * (blockHeight + blockSpacing) + 100
+-- ======================== РЕДАКТОР И КЛАВИАТУРА ========================
+function updateKeyboardPosition()
+    local keys = (State.keyboardMode == "digits" and State.digitsKeys or
+                  State.keyboardMode == "ru" and State.ruKeys or State.enKeys)
+    local cols = 0
+    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
+    local totalW = cols * (State.keyW + State.keySpacing) + State.keySpacing
+    State.keyboardPosX = love.graphics.getWidth()/2 - totalW/2
+    State.keyboardPosY = love.graphics.getHeight() - State.keyboardHeight
 end
 
--- ========== ОТРИСОВКА БЛОКОВ ==========
-function drawBlock(block, x, y, isDragging, highlight)
-    local color = catColors[block.category] or {0.4,0.4,0.8}
-    love.graphics.setColor(color)
-    love.graphics.rectangle("fill", x, y, blockWidth, blockHeight, 6)
-    love.graphics.setColor(0,0,0)
-    love.graphics.rectangle("line", x, y, blockWidth, blockHeight, 6)
-    if highlight then
-        love.graphics.setColor(1,1,0)
-        love.graphics.rectangle("line", x, y, blockWidth, blockHeight, 6)
-    end
-    love.graphics.setColor(1,1,1)
-    love.graphics.print(block.label or block.name, x+8, y+8)
-    if isDragging then
-        love.graphics.setColor(1,1,1,0.6)
-        love.graphics.rectangle("line", x, y, blockWidth, blockHeight, 6)
-    end
-    love.graphics.setColor(1,1,1)
-end
-
--- ========== ОТРИСОВКА КЛАВИАТУРЫ ==========
 function drawKeyboard()
-    local keys = nil
-    if keyboardMode == "digits" then keys = digitsKeys
-    elseif keyboardMode == "ru" then keys = ruKeys
-    elseif keyboardMode == "en" then keys = enKeys
-    end
-    if not keys then return end
+    if not State.keyboardVisible then return end
+    updateKeyboardPosition()
+    local kx = State.keyboardPosX
+    local ky = State.keyboardPosY
+    local keys = (State.keyboardMode == "digits" and State.digitsKeys or
+                  State.keyboardMode == "ru" and State.ruKeys or State.enKeys)
+    local rows = #keys
+    local cols = 0
+    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
+    local kw = cols * (State.keyW + State.keySpacing) + State.keySpacing
+    local kh = rows * (State.keyH + State.keySpacing) + State.keySpacing + 45
+    love.graphics.setColor(0.1,0.1,0.1,0.95)
+    love.graphics.rectangle("fill", kx, ky, kw, kh, 10)
 
-    local startX = keyboardPosX or (love.graphics.getWidth() - (4 * (keyW + keySpacing) + 10))
-    local startY = keyboardPosY
-
-    -- Текущее значение
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Ввод: " .. editingText, startX, startY - 25)
-
-    for rowIdx, row in ipairs(keys) do
-        for colIdx, key in ipairs(row) do
-            local kx = startX + (colIdx - 1) * (keyW + keySpacing)
-            local ky = startY + (rowIdx - 1) * (keyH + keySpacing)
-            love.graphics.setColor(0.3, 0.3, 0.3)
-            love.graphics.rectangle("fill", kx, ky, keyW, keyH, 4)
+    for i, row in ipairs(keys) do
+        for j, char in ipairs(row) do
+            local bx = kx + State.keySpacing + (j-1)*(State.keyW + State.keySpacing)
+            local by = ky + State.keySpacing + (i-1)*(State.keyH + State.keySpacing)
+            love.graphics.setColor(0.3,0.3,0.3)
+            love.graphics.rectangle("fill", bx, by, State.keyW, State.keyH, 6)
             love.graphics.setColor(1,1,1)
-            love.graphics.print(key, kx + 10, ky + 10)
+            love.graphics.rectangle("line", bx, by, State.keyW, State.keyH, 6)
+            love.graphics.printf(char, bx, by+State.keyH/2-8, State.keyW, "center")
         end
     end
 
-    -- Кнопки переключения режима и управления
-    local btnY = startY + #keys * (keyH + keySpacing) + 5
-    local modes = {
-        {label = "123", mode = "digits"},
-        {label = "АБВ", mode = "ru"},
-        {label = "ABC", mode = "en"},
-    }
+    local swY = ky + rows*(State.keyH + State.keySpacing) + State.keySpacing + 5
+    local swW = 55
+    local modes = {{"123","digits"},{"АБВ","ru"},{"ABC","en"}}
     for i, m in ipairs(modes) do
-        local bx = startX + (i - 1) * (keyW + keySpacing)
-        love.graphics.setColor(0.2, 0.2, 0.6)
-        love.graphics.rectangle("fill", bx, btnY, keyW, keyH, 4)
+        local bx = kx + State.keySpacing + (i-1)*(swW + State.keySpacing)
+        love.graphics.setColor(0.3,0.3,0.3)
+        love.graphics.rectangle("fill", bx, swY, swW, 30, 6)
         love.graphics.setColor(1,1,1)
-        love.graphics.print(m.label, bx + 8, btnY + 10)
+        love.graphics.rectangle("line", bx, swY, swW, 30, 6)
+        love.graphics.printf(m[1], bx, swY+8, swW, "center")
     end
-
-    -- Готово и Отмена
-    love.graphics.setColor(0, 0.6, 0)
-    love.graphics.rectangle("fill", startX + 3 * (keyW + keySpacing), btnY, keyW, keyH, 4)
+    local doneX = kx + kw - 70
+    love.graphics.setColor(0.2,0.6,0.2)
+    love.graphics.rectangle("fill", doneX, swY, 60, 30, 6)
     love.graphics.setColor(1,1,1)
-    love.graphics.print("OK", startX + 3 * (keyW + keySpacing) + 10, btnY + 10)
-
-    love.graphics.setColor(0.6, 0, 0)
-    love.graphics.rectangle("fill", startX + 4 * (keyW + keySpacing), btnY, keyW, keyH, 4)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("X", startX + 4 * (keyW + keySpacing) + 12, btnY + 10)
+    love.graphics.rectangle("line", doneX, swY, 60, 30, 6)
+    love.graphics.printf("Готово", doneX, swY+8, 60, "center")
 end
 
-function love.load()
-    local loaded = loadYAML("project.yml")
-    if loaded then workspaceBlocks = loaded
-    else
-        workspaceBlocks = {
-            {type="event", name="start", label="при старте", category="event"},
-            {type="action", name="showCube", label="показать куб", category="looks"},
-            {type="action", name="printText", label="вывести текст", param="Привет, Pocket Cat!", category="text"}
-        }
-    end
-    calculateHeights()
-    -- Позиция клавиатуры по умолчанию
-    keyboardPosX = love.graphics.getWidth() - (4 * (keyW + keySpacing) + 20)
-end
-
-function love.draw()
-    -- Палитра со скроллом
-    love.graphics.setScissor(0, 0, paletteWidth, love.graphics.getHeight())
-    love.graphics.setColor(0.15,0.15,0.15)
-    love.graphics.rectangle("fill", 0, 0, paletteWidth, love.graphics.getHeight())
-
-    local y = 10 - paletteScrollY
-    local lastCat = nil
-    for _, b in ipairs(paletteBlocks) do
-        if b.category ~= lastCat then
-            love.graphics.setColor(1,1,1)
-            love.graphics.print(b.category, 5, y)
-            y = y + 20
-            lastCat = b.category
-        end
-        if y + blockHeight > 0 and y < love.graphics.getHeight() then
-            drawBlock(b, 5, y, false, false)
-        end
-        y = y + blockHeight + 6
-    end
-    love.graphics.setScissor()
-
-    -- Рабочая область со скроллом
-    love.graphics.setScissor(paletteWidth, 0, love.graphics.getWidth()-paletteWidth, love.graphics.getHeight())
-    love.graphics.setColor(0.1,0.1,0.1)
-    love.graphics.rectangle("fill", paletteWidth, 0, love.graphics.getWidth()-paletteWidth, love.graphics.getHeight())
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Рабочая область (перетащи сюда)", workspaceStartX, 10 - workspaceScrollY)
-
-    for i, b in ipairs(workspaceBlocks) do
-        local bx = workspaceStartX
-        local by = workspaceStartY + (i-1)*(blockHeight + blockSpacing) - workspaceScrollY
-        local highlight = (editingBlockIdx == i)
-        if not (draggingBlock == b and not dragFromPalette) then
-            if by + blockHeight > 0 and by < love.graphics.getHeight() then
-                drawBlock(b, bx, by, false, highlight)
+function handleKeyboardTouch(x, y)
+    if not State.keyboardVisible then return false end
+    local kx = State.keyboardPosX
+    local ky = State.keyboardPosY
+    local keys = (State.keyboardMode == "digits" and State.digitsKeys or
+                  State.keyboardMode == "ru" and State.ruKeys or State.enKeys)
+    for i, row in ipairs(keys) do
+        for j, char in ipairs(row) do
+            local bx = kx + State.keySpacing + (j-1)*(State.keyW + State.keySpacing)
+            local by = ky + State.keySpacing + (i-1)*(State.keyH + State.keySpacing)
+            if x >= bx and x <= bx+State.keyW and y >= by and y <= by+State.keyH then
+                if char == "⌫" then
+                    State.editingText = State.editingText:sub(1, -2)
+                else
+                    State.editingText = State.editingText .. char
+                end
+                return true
             end
         end
     end
-    love.graphics.setScissor()
-
-    if draggingBlock then
-        local mx, my = love.mouse.getPosition()
-        drawBlock(draggingBlock, mx-blockWidth/2, my-blockHeight/2, true, false)
+    local rows = #keys
+    local swY = ky + rows*(State.keyH + State.keySpacing) + State.keySpacing + 5
+    local swW = 55
+    local modes = {{"123","digits"},{"АБВ","ru"},{"ABC","en"}}
+    for i, m in ipairs(modes) do
+        local bx = kx + State.keySpacing + (i-1)*(swW + State.keySpacing)
+        if x >= bx and x <= bx+swW and y >= swY and y <= swY+30 then
+            State.keyboardMode = m[2]
+            return true
+        end
     end
+    local cols = 0
+    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
+    local totalW = cols * (State.keyW + State.keySpacing) + State.keySpacing
+    local doneX = kx + totalW - 70
+    if x >= doneX and x <= doneX+60 and y >= swY and y <= swY+30 then
+        if State.editingBlockIdx then
+            local block = State.workspaceBlocks[State.editingBlockIdx]
+            local val = State.editingText
+            if tonumber(val) then block.param = tonumber(val) else block.param = val end
+        end
+        State.editingBlockIdx = nil
+        State.editingText = ""
+        State.keyboardVisible = false
+        return true
+    end
+    if y < State.keyboardPosY then
+        State.editingBlockIdx = nil
+        State.editingText = ""
+        State.keyboardVisible = false
+        return true
+    end
+    return false
+end
 
-    -- Кнопка запуска в правом верхнем углу
-    local runBtnX = love.graphics.getWidth() - 50
-    local runBtnY = 10
-    love.graphics.setColor(0,1,0)
-    love.graphics.circle("fill", runBtnX, runBtnY, 22)
+-- ======================== СЦЕНЫ И ОБЪЕКТЫ (вкладки) ========================
+function drawTabs()
+    love.graphics.setColor(0.1,0.1,0.1)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), 70)
     love.graphics.setColor(1,1,1)
-    love.graphics.print("▶", runBtnX - 10, runBtnY - 10, 0, 1.6)
+    love.graphics.print("Сцены:", 5, 5)
+    local sx = 70
+    for i, sc in ipairs(State.project.scenes) do
+        local w = love.graphics.getFont():getWidth(sc.name) + 15
+        love.graphics.setColor(State.currentSceneIdx == i and {0.4,0.7,1} or {0.3,0.3,0.3})
+        love.graphics.rectangle("fill", sx, 5, w, 25)
+        love.graphics.setColor(1,1,1)
+        love.graphics.print(sc.name, sx+5, 10)
+        sx = sx + w + 5
+    end
+    love.graphics.setColor(0.3,0.7,0.3)
+    love.graphics.rectangle("fill", sx, 5, 25, 25)
+    love.graphics.print("+", sx+5, 8)
 
-    -- Сцена (куб, сфера)
-    love.graphics.push()
-    love.graphics.translate(cubeX, cubeY)
-    love.graphics.rotate(math.rad(objectAngle))
-    local s = objectSize/30
-    love.graphics.scale(s, s)
-    if showCube then
-        love.graphics.setColor(objectColor)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Объекты:", 5, 35)
+    local ox = 70
+    local scene = getCurrentScene()
+    if scene then
+        for i, obj in ipairs(scene.objects) do
+            local w = love.graphics.getFont():getWidth(obj.name) + 15
+            love.graphics.setColor(State.currentObjectIdx == i and {0.9,0.9,0.2} or {0.3,0.3,0.3})
+            love.graphics.rectangle("fill", ox, 35, w, 25)
+            love.graphics.setColor(1,1,1)
+            love.graphics.print(obj.name, ox+5, 40)
+            ox = ox + w + 5
+        end
+        love.graphics.setColor(0.3,0.7,0.3)
+        love.graphics.rectangle("fill", ox, 35, 25, 25)
+        love.graphics.print("+", ox+5, 38)
+    end
+end
+
+function handleTabsClick(x, y)
+    if y >= 5 and y <= 30 then
+        local sx = 70
+        for i, sc in ipairs(State.project.scenes) do
+            local w = love.graphics.getFont():getWidth(sc.name) + 15
+            if x >= sx and x <= sx+w then
+                State.currentSceneIdx = i
+                State.currentObjectIdx = 1
+                updateWorkspaceBlocks()
+                return true
+            end
+            sx = sx + w + 5
+        end
+        if x >= sx and x <= sx+25 then
+            addScene()
+            return true
+        end
+    elseif y >= 35 and y <= 60 then
+        local ox = 70
+        local scene = getCurrentScene()
+        if scene then
+            for i, obj in ipairs(scene.objects) do
+                local w = love.graphics.getFont():getWidth(obj.name) + 15
+                if x >= ox and x <= ox+w then
+                    State.currentObjectIdx = i
+                    updateWorkspaceBlocks()
+                    return true
+                end
+                ox = ox + w + 5
+            end
+            if x >= ox and x <= ox+25 then
+                addObject()
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function addScene()
+    table.insert(State.project.scenes, {
+        name = "Сцена " .. #State.project.scenes+1,
+        bgColor = {0.2, 0.2, 0.4},
+        objects = {{ name = "Объект 1", image = nil, blocks = {} }}
+    })
+    State.currentSceneIdx = #State.project.scenes
+    State.currentObjectIdx = 1
+    updateWorkspaceBlocks()
+end
+
+function addObject()
+    local scene = getCurrentScene()
+    if not scene then return end
+    table.insert(scene.objects, {
+        name = "Объект " .. #scene.objects+1,
+        image = nil,
+        blocks = {}
+    })
+    State.currentObjectIdx = #scene.objects
+    updateWorkspaceBlocks()
+end
+
+-- ======================== PAINT ========================
+function initPaint()
+    State.paintCanvas = love.graphics.newCanvas(State.paintSize, State.paintSize)
+    love.graphics.setCanvas(State.paintCanvas)
+    love.graphics.clear()
+    love.graphics.setCanvas()
+end
+
+function drawPaint()
+    if not State.paintMode then return end
+    love.graphics.setColor(0,0,0,0.8)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Paint (32x32) – рисуй мышью/пальцем", 10, 10)
+    love.graphics.setColor(1,1,1)
+    love.graphics.rectangle("line", 50, 50, State.paintSize*State.paintScale, State.paintSize*State.paintScale)
+    love.graphics.draw(State.paintCanvas, 50, 50, 0, State.paintScale, State.paintScale)
+    love.graphics.print("Инструмент: " .. (State.paintCurrentTool == "brush" and "Кисть" or "Ластик"), 10, 400)
+    love.graphics.print("Цвет:", 10, 430)
+    love.graphics.setColor(State.paintBrushColor)
+    love.graphics.rectangle("fill", 60, 430, 20, 20)
+    love.graphics.setColor(0.3,0.8,0.3)
+    love.graphics.rectangle("fill", 120, 400, 100, 30)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Сохранить", 135, 407)
+    love.graphics.setColor(0.8,0.3,0.3)
+    love.graphics.rectangle("fill", 230, 400, 100, 30)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Закрыть", 245, 407)
+end
+
+function handlePaintTouch(x, y, isDown)
+    if not State.paintMode then return false end
+    -- кнопки
+    if y > 390 and y < 430 then
+        if x > 120 and x < 220 then
+            -- сохранить
+            local scene = getCurrentScene()
+            local obj = getCurrentObject()
+            if scene and obj then
+                local imgData = State.paintCanvas:newImageData()
+                local filename = "obj_" .. State.currentSceneIdx .. "_" .. State.currentObjectIdx .. ".png"
+                imgData:encode("png", filename)
+                obj.image = filename
+            end
+            State.paintMode = false
+            return true
+        elseif x > 230 and x < 330 then
+            State.paintMode = false
+            return true
+        end
+    end
+    local cx, cy = 50, 50
+    local pw = State.paintSize * State.paintScale
+    local ph = pw
+    if x >= cx and x <= cx+pw and y >= cy and y <= cy+ph then
+        local px = math.floor((x - cx) / State.paintScale) + 1
+        local py = math.floor((y - cy) / State.paintScale) + 1
+        if px >= 1 and px <= State.paintSize and py >= 1 and py <= State.paintSize then
+            if isDown then
+                love.graphics.setCanvas(State.paintCanvas)
+                if State.paintCurrentTool == "brush" then
+                    love.graphics.setColor(State.paintBrushColor)
+                else
+                    love.graphics.setColor(0,0,0,0)
+                end
+                love.graphics.rectangle("fill", px-1, py-1, 1, 1)
+                love.graphics.setCanvas()
+            end
+            return true
+        end
+    end
+    return false
+end
+
+-- ======================== СОХРАНЕНИЕ / ЗАГРУЗКА ========================
+function saveProject(filename)
+    local lines = {"scenes:"}
+    for si, scene in ipairs(State.project.scenes) do
+        table.insert(lines, "  - name: " .. scene.name)
+        table.insert(lines, "    bgColor: [" .. table.concat(scene.bgColor, ",") .. "]")
+        table.insert(lines, "    objects:")
+        for oi, obj in ipairs(scene.objects) do
+            table.insert(lines, "      - name: " .. obj.name)
+            if obj.image then table.insert(lines, "        image: " .. obj.image) end
+            table.insert(lines, "        blocks:")
+            for _, block in ipairs(obj.blocks) do
+                table.insert(lines, "          - type: " .. block.type)
+                table.insert(lines, "            name: " .. block.name)
+                if block.param then table.insert(lines, "            param: " .. tostring(block.param)) end
+                if block.category then table.insert(lines, "            category: " .. block.category) end
+            end
+        end
+    end
+    love.filesystem.write(filename, table.concat(lines, "\n"))
+end
+
+function loadProject(filename)
+    local info = love.filesystem.getInfo(filename)
+    if not info then return nil end
+    local contents = love.filesystem.read(filename)
+    local project = {scenes = {}}
+    local currentScene, currentObject, currentBlock = nil, nil, nil
+    for line in contents:gmatch("[^\r\n]+") do
+        if line:match("^  %- name: (.+)") then
+            local name = line:match("name: (.+)")
+            currentScene = {name = name, bgColor = {0.2,0.2,0.4}, objects = {}}
+            table.insert(project.scenes, currentScene)
+        elseif line:match("^    bgColor: %[(.+)%]") then
+            local vals = line:match("bgColor: %[(.+)%]")
+            if currentScene then
+                local r,g,b = vals:match("([%d.]+),([%d.]+),([%d.]+)")
+                currentScene.bgColor = {tonumber(r), tonumber(g), tonumber(b)}
+            end
+        elseif line:match("^      %- name: (.+)") then
+            local name = line:match("name: (.+)")
+            currentObject = {name = name, image = nil, blocks = {}}
+            table.insert(currentScene.objects, currentObject)
+        elseif line:match("^        image: (.+)") then
+            if currentObject then currentObject.image = line:match("image: (.+)") end
+        elseif line:match("^          %- type: (.+)") then
+            local typ = line:match("type: (%w+)")
+            currentBlock = {type = typ}
+            table.insert(currentObject.blocks, currentBlock)
+        elseif line:match("^            name: (.+)") then
+            if currentBlock then currentBlock.name = line:match("name: (.+)") end
+        elseif line:match("^            param: (.+)") then
+            if currentBlock then
+                local p = line:match("param: (.+)")
+                p = p:gsub("^%s*(.-)%s*$", "")
+                if tonumber(p) then p = tonumber(p) end
+                currentBlock.param = p
+            end
+        elseif line:match("^            category: (.+)") then
+            if currentBlock then currentBlock.category = line:match("category: (.+)") end
+        end
+    end
+    return project
+end
+
+-- ======================== ОТРИСОВКА СЦЕНЫ ========================
+function drawSceneObjects()
+    if State.showCube then
+        love.graphics.push()
+        love.graphics.translate(State.cubeX, State.cubeY)
+        love.graphics.rotate(math.rad(State.objectAngle))
+        local s = State.objectSize/30
+        love.graphics.scale(s, s)
+        love.graphics.setColor(State.objectColor)
         love.graphics.setLineWidth(2)
-        for _, edge in ipairs(cubeEdges) do
-            local p1 = cubeVertices[edge[1]]
-            local p2 = cubeVertices[edge[2]]
+        for _, edge in ipairs(State.cubeEdges) do
+            local p1 = State.cubeVertices[edge[1]]
+            local p2 = State.cubeVertices[edge[2]]
             love.graphics.line(p1[1]*10, p1[2]*10, p2[1]*10, p2[2]*10)
         end
+        love.graphics.pop()
     end
-    love.graphics.pop()
-
-    if showSphere then
-        love.graphics.setColor(objectColor)
+    if State.showSphere then
+        love.graphics.setColor(State.objectColor)
         love.graphics.setLineWidth(2)
-        drawSphere(sphereX, sphereY, objectSize)
+        love.graphics.circle("line", State.sphereX, State.sphereY, State.objectSize, 24)
     end
+end
 
-    -- Примитивы из буфера
-    for _, cmd in ipairs(drawCommands) do
-        love.graphics.setLineWidth(2)
-        if cmd[1] == "line" then
-            love.graphics.setColor(penColor)
-            love.graphics.line(cmd[2], cmd[3], cmd[4], cmd[5])
-        elseif cmd[1] == "rect" then
-            love.graphics.setColor(penColor)
-            love.graphics.rectangle("line", cmd[2], cmd[3], cmd[4], cmd[5])
-        elseif cmd[1] == "ellipse" then
-            love.graphics.setColor(penColor)
-            love.graphics.ellipse("line", cmd[2], cmd[3], cmd[4], cmd[5])
-        end
+-- ======================== ОСНОВНЫЕ КОЛЛБЭКИ ========================
+function love.load()
+    State.font = love.graphics.getFont()
+    local saved = loadProject("project.yml")
+    State.project = saved or defaultProject()
+    updateWorkspaceBlocks()
+    initPaint()
+end
+
+function love.draw()
+    local bg = getCurrentScene() and getCurrentScene().bgColor or {0.1,0.1,0.1}
+    love.graphics.setBackgroundColor(bg)
+    drawPalette()
+    drawWorkspace()
+    drawTabs()
+    -- редактор параметра и клавиатура
+    if State.editingBlockIdx then
+        local block = State.workspaceBlocks[State.editingBlockIdx]
+        local bx = State.workspaceStartX
+        local by = State.workspaceStartY + (State.editingBlockIdx-1)*(State.blockHeight + State.blockSpacing) - State.workspaceScrollY
+        love.graphics.setColor(1,1,1)
+        love.graphics.print("Значение: " .. State.editingText, bx, by + State.blockHeight + 5)
+        State.keyboardVisible = true
+    else
+        State.keyboardVisible = false
     end
-
-    -- Текстовые сообщения
-    love.graphics.setFont(font)
-    local msgY = workspaceStartY + #workspaceBlocks*(blockHeight+blockSpacing) + 20 - workspaceScrollY
-    for _, msg in ipairs(messages) do
+    drawKeyboard()
+    drawPaint()
+    drawRunButton()
+    drawSceneObjects()
+    -- сообщения
+    love.graphics.setFont(State.font)
+    local msgY = State.workspaceStartY + #State.workspaceBlocks*(State.blockHeight+State.blockSpacing) + 20 - State.workspaceScrollY
+    for _, msg in ipairs(State.messages) do
         if msgY > 0 and msgY < love.graphics.getHeight() then
             love.graphics.setColor(1,1,1)
-            love.graphics.print(msg, workspaceStartX, msgY)
+            love.graphics.print(msg, State.workspaceStartX, msgY)
         end
-        msgY = msgY + fontSize + 4
-    end
-    love.graphics.setFont(love.graphics.getFont())
-
-    -- Редактор параметра (поле ввода на ПК, на телефонах не рисуем)
-    if editingBlockIdx and not keyboardVisible then
-        local block = workspaceBlocks[editingBlockIdx]
-        local bx = workspaceStartX
-        local by = workspaceStartY + (editingBlockIdx-1)*(blockHeight + blockSpacing) - workspaceScrollY
-        love.graphics.setColor(0.2,0.2,0.2)
-        love.graphics.rectangle("fill", bx, by + blockHeight + 5, editFieldW, editFieldH)
-        love.graphics.setColor(1,1,1)
-        love.graphics.rectangle("line", bx, by + blockHeight + 5, editFieldW, editFieldH)
-        love.graphics.print(editingText, bx+5, by + blockHeight + 10)
-        love.graphics.print("Enter - сохранить", bx, by + blockHeight + editFieldH + 10)
-    end
-
-    -- Встроенная клавиатура (только на телефонах при редактировании)
-    if keyboardVisible and editingBlockIdx then
-        drawKeyboard()
+        msgY = msgY + State.fontSize + 4
     end
 end
 
 function love.update(dt)
-    calculateHeights()
-    local maxPalScroll = math.max(0, paletteContentHeight - love.graphics.getHeight())
-    paletteScrollY = math.max(0, math.min(paletteScrollY, maxPalScroll))
-
-    local maxWsScroll = math.max(0, workspaceContentHeight - love.graphics.getHeight())
-    workspaceScrollY = math.max(0, math.min(workspaceScrollY, maxWsScroll))
-
-    if not stopAll then
-        if eventHandlers["tap"] and isTapped then
-            executeActions(eventHandlers["tap"])
-            isTapped = false
-        end
-        if eventHandlers["release"] and isReleased then
-            executeActions(eventHandlers["release"])
-            isReleased = false
-        end
-        if eventHandlers["touch"] and touchActive then
-            executeActions(eventHandlers["touch"])
-        end
-        if eventHandlers["mousemove"] and mouseMoved then
-            executeActions(eventHandlers["mousemove"])
-            mouseMoved = false
-        end
-        if eventHandlers["key_a"] and keyAPressed then
-            executeActions(eventHandlers["key_a"])
-            keyAPressed = false
-        end
-        if eventHandlers["key_b"] and keyBPressed then
-            executeActions(eventHandlers["key_b"])
-            keyBPressed = false
-        end
+    local maxPal = math.max(0, State.paletteContentHeight - love.graphics.getHeight())
+    State.paletteScrollY = math.max(0, math.min(State.paletteScrollY, maxPal))
+    local maxWs = math.max(0, State.workspaceContentHeight - love.graphics.getHeight())
+    State.workspaceScrollY = math.max(0, math.min(State.workspaceScrollY, maxWs))
+    if State.waitTimer > 0 then
+        State.waitTimer = State.waitTimer - dt
+        if State.waitTimer <= 0 then State.waitTimer = 0 end
     end
-
-    if waitTimer > 0 then
-        waitTimer = waitTimer - dt
-        if waitTimer <= 0 then waitTimer = 0 end
+    -- долгое нажатие на блок
+    if State.longPressBlockIdx and not State.longPressMoved then
+        if love.timer.getTime() - State.longPressStartTime > 0.5 then
+            table.remove(State.workspaceBlocks, State.longPressBlockIdx)
+            if State.editingBlockIdx == State.longPressBlockIdx then
+                State.editingBlockIdx = nil
+                State.editingText = ""
+                State.keyboardVisible = false
+            end
+            State.longPressBlockIdx = nil
+            calculateHeights()
+        end
     end
 end
 
--- ========== ВВОД (мышь и клавиатура для ПК) ==========
-function love.wheelmoved(x, y)
-    local mx, my = love.mouse.getPosition()
-    if mx <= paletteWidth then
-        paletteScrollY = paletteScrollY - y * 30
+function love.mousepressed(x, y, button)
+    if State.paintMode then
+        if handlePaintTouch(x, y, true) then return end
+    end
+    if State.keyboardVisible and handleKeyboardTouch(x, y) then return end
+    local rx = love.graphics.getWidth() - 50
+    if math.sqrt((x-rx)^2 + (y-15)^2) <= 22 then runProject(); return end
+    if y <= 60 and handleTabsClick(x, y) then return end
+    if x <= State.paletteWidth then
+        local yPal = 10 - State.paletteScrollY
+        local lastCat = nil
+        for _, b in ipairs(State.paletteBlocks) do
+            if b.category ~= lastCat then
+                yPal = yPal + 20
+                lastCat = b.category
+            end
+            if x >= 5 and x <= 5+State.blockWidth and y >= yPal and y <= yPal+State.blockHeight then
+                local nb = {type=b.type, name=b.name, label=b.label, param=b.param, category=b.category}
+                table.insert(State.workspaceBlocks, nb)
+                calculateHeights()
+                return
+            end
+            yPal = yPal + State.blockHeight + 6
+        end
+        State.touchActive = true
+        return
+    end
+    for i, b in ipairs(State.workspaceBlocks) do
+        local bx = State.workspaceStartX
+        local by = State.workspaceStartY + (i-1)*(State.blockHeight + State.blockSpacing) - State.workspaceScrollY
+        if x >= bx and x <= bx+State.blockWidth and y >= by and y <= by+State.blockHeight then
+            State.longPressBlockIdx = i
+            State.longPressStartTime = love.timer.getTime()
+            State.longPressMoved = false
+            return
+        end
+    end
+    State.isTapped = true
+    State.touchActive = true
+end
+
+function love.mousereleased(x, y, button)
+    if State.paintMode then return end
+    if State.longPressBlockIdx and not State.longPressMoved then
+        local elapsed = love.timer.getTime() - State.longPressStartTime
+        if elapsed < 0.5 then
+            State.editingBlockIdx = State.longPressBlockIdx
+            State.editingText = tostring(State.workspaceBlocks[State.longPressBlockIdx].param or "")
+            State.keyboardVisible = true
+        end
+        State.longPressBlockIdx = nil
+    end
+    State.isReleased = true
+    State.touchActive = false
+end
+
+function love.touchmoved(id, x, y, dx, dy)
+    if State.paintMode then
+        handlePaintTouch(x, y, true)
+        return
+    end
+    if State.longPressBlockIdx then
+        if math.abs(dx) > 5 or math.abs(dy) > 5 then
+            State.longPressMoved = true
+            State.draggingBlock = State.workspaceBlocks[State.longPressBlockIdx]
+            table.remove(State.workspaceBlocks, State.longPressBlockIdx)
+            State.longPressBlockIdx = nil
+        end
+    elseif x <= State.paletteWidth then
+        State.paletteScrollY = State.paletteScrollY - dy
     else
-        workspaceScrollY = workspaceScrollY - y * 30
+        State.workspaceScrollY = State.workspaceScrollY - dy
+    end
+end
+
+function love.touchpressed(id, x, y) love.mousepressed(x, y, 1) end
+function love.touchreleased(id, x, y) love.mousereleased(x, y, 1) end
+function love.wheelmoved(x, y)
+    if x <= State.paletteWidth then
+        State.paletteScrollY = State.paletteScrollY - y * 30
+    else
+        State.workspaceScrollY = State.workspaceScrollY - y * 30
     end
 end
 
 function love.textinput(t)
-    if editingBlockIdx and not keyboardVisible then
-        editingText = editingText .. t
-    end
+    -- не используется, оставил для совместимости с ПК-клавиатурой (опционально)
 end
 
 function love.keypressed(key)
-    if editingBlockIdx and not keyboardVisible then
-        if key == "return" or key == "kpenter" then
-            local block = workspaceBlocks[editingBlockIdx]
-            local val = editingText
-            if tonumber(val) then
-                block.param = tonumber(val)
-            else
-                block.param = val
-            end
-            editingBlockIdx = nil
-            editingText = ""
-        elseif key == "escape" then
-            editingBlockIdx = nil
-            editingText = ""
-        elseif key == "backspace" then
-            editingText = editingText:sub(1, -2)
-        end
-    else
-        if key == "a" then keyAPressed = true
-        elseif key == "b" then keyBPressed = true
-        end
-    end
-end
-
--- ========== ОБРАБОТКА КАСАНИЙ (телефон) ==========
-function love.touchpressed(id, x, y)
-    -- Кнопка запуска (в правом верхнем углу)
-    local runBtnX = love.graphics.getWidth() - 50
-    local runBtnY = 10
-    if math.sqrt((x-runBtnX)^2 + (y-runBtnY)^2) <= 22 then
+    if key == "f5" then
         runProject()
-        return
-    end
-
-    -- Если клавиатура видна, обрабатываем нажатия по ней
-    if keyboardVisible and editingBlockIdx then
-        handleKeyboardTouch(x, y)
-        return
-    end
-
-    touchStartX, touchStartY = x, y
-    touchStartTime = love.timer.getTime()
-    touchMoved = false
-    isTouchScrollingPalette = false
-    isTouchScrollingWorkspace = false
-
-    -- Если редактор открыт на ПК (без клавиатуры) – ничего не делаем
-    if editingBlockIdx and not keyboardVisible then return end
-
-    -- Проверяем, попали ли в рабочую область (где блоки)
-    if x > paletteWidth then
-        -- Открываем редактор для блока, если тап по нему
-        local tapX, tapY = x, y + workspaceScrollY
-        for i, b in ipairs(workspaceBlocks) do
-            local bx = workspaceStartX
-            local by = workspaceStartY + (i-1)*(blockHeight + blockSpacing)
-            if tapX >= bx and tapX <= bx+blockWidth and tapY >= by and tapY <= by+blockHeight then
-                -- Открываем редактор, показываем клавиатуру на телефоне
-                editingBlockIdx = i
-                editingText = tostring(b.param or "")
-                local os = love.system.getOS()
-                if os == "Android" or os == "iOS" then
-                    keyboardVisible = true
-                    keyboardPosX = love.graphics.getWidth() - (4 * (keyW + keySpacing) + 20)
-                else
-                    keyboardVisible = false
-                end
-                return
-            end
-        end
-        -- Пустое место – триггерим события
-        isTapped = true
-        touchActive = true
-    else
-        -- Палитра: начинаем скролл
-        isTouchScrollingPalette = true
+    elseif key == "f2" then
+        saveProject("project.yml")
     end
 end
-
-function love.touchmoved(id, x, y, dx, dy)
-    if keyboardVisible then return end  -- во время ввода не скроллим
-    touchMoved = true
-    if isTouchScrollingPalette then
-        paletteScrollY = paletteScrollY - dy
-    elseif isTouchScrollingWorkspace then
-        workspaceScrollY = workspaceScrollY - dy
-    end
-end
-
-function love.touchreleased(id, x, y)
-    if keyboardVisible then return end
-    local dist = math.sqrt((x-touchStartX)^2 + (y-touchStartY)^2)
-    local dt = love.timer.getTime() - touchStartTime
-
-    if not touchMoved and dist < 15 and dt < 0.3 then
-        if x <= paletteWidth then
-            -- Тап по блоку палитры: добавляем блок в рабочую область
-            local yInPal = 10 - paletteScrollY
-            local lastCat = nil
-            for _, b in ipairs(paletteBlocks) do
-                if b.category ~= lastCat then
-                    yInPal = yInPal + 20
-                    lastCat = b.category
-                end
-                local by = yInPal
-                if x >= 5 and x <= 5+blockWidth and y >= by and y <= by+blockHeight then
-                    local newBlock = {type=b.type, name=b.name, label=b.label, param=b.param, category=b.category}
-                    table.insert(workspaceBlocks, newBlock)
-                    calculateHeights()
-                    return
-                end
-                yInPal = yInPal + blockHeight + 6
-            end
-        else
-            -- Рабочая область (уже обработано в touchpressed)
-        end
-    end
-
-    isTouchScrollingPalette = false
-    isTouchScrollingWorkspace = false
-    touchMoved = false
-end
-
--- Обработка нажатий по клавиатуре
-function handleKeyboardTouch(x, y)
-    local startX = keyboardPosX
-    local startY = keyboardPosY
-    local keys = nil
-    if keyboardMode == "digits" then keys = digitsKeys
-    elseif keyboardMode == "ru" then keys = ruKeys
-    elseif keyboardMode == "en" then keys = enKeys
-    end
-
-    -- Проверяем основные клавиши
-    for rowIdx, row in ipairs(keys) do
-        for colIdx, key in ipairs(row) do
-            local kx = startX + (colIdx - 1) * (keyW + keySpacing)
-            local ky = startY + (rowIdx - 1) * (keyH + keySpacing)
-            if x >= kx and x <= kx + keyW and y >= ky and y <= ky + keyH then
-                if key == "⌫" then
-                    editingText = editingText:sub(1, -2)
-                else
-                    editingText = editingText .. key
-                end
-                return
-            end
-        end
-    end
-
-    -- Кнопки переключения и управления
-    local btnY = startY + #keys * (keyH + keySpacing) + 5
-    local modes = {
-        {label = "123", mode = "digits"},
-        {label = "АБВ", mode = "ru"},
-        {label = "ABC", mode = "en"},
-    }
-    for i, m in ipairs(modes) do
-        local bx = startX + (i - 1) * (keyW + keySpacing)
-        if x >= bx and x <= bx + keyW and y >= btnY and y <= btnY + keyH then
-            keyboardMode = m.mode
-            return
-        end
-    end
-
-    -- Готово (OK)
-    local okX = startX + 3 * (keyW + keySpacing)
-    if x >= okX and x <= okX + keyW and y >= btnY and y <= btnY + keyH then
-        local block = workspaceBlocks[editingBlockIdx]
-        local val = editingText
-        if tonumber(val) then
-            block.param = tonumber(val)
-        else
-            block.param = val
-        end
-        editingBlockIdx = nil
-        editingText = ""
-        keyboardVisible = false
-        return
-    end
-
-    -- Отмена (X)
-    local cancelX = startX + 4 * (keyW + keySpacing)
-    if x >= cancelX and x <= cancelX + keyW and y >= btnY and y <= btnY + keyH then
-        editingBlockIdx = nil
-        editingText = ""
-        keyboardVisible = false
-        return
-    end
-end
-
-function love.mousemoved(x, y) mouseMoved = true end
