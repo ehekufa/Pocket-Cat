@@ -88,13 +88,16 @@ State = {
     digitsKeys = {{"1","2","3"},{"4","5","6"},{"7","8","9"},{".","0","⌫"}},
     ruKeys = {{"й","ц","у","к","е","н","г","ш","щ","з","х","ъ"},{"ф","ы","в","а","п","р","о","л","д","ж","э"},{"я","ч","с","м","и","т","ь","б","ю","ё"}},
     enKeys = {{"q","w","e","r","t","y","u","i","o","p"},{"a","s","d","f","g","h","j","k","l"},{"z","x","c","v","b","n","m"}},
-    paintMode = false, paintCanvas = nil, paintSize = 32, paintScale = 10, paintBrushColor = {1,1,1}, paintCurrentTool = "brush",
-    paintTools = {"brush", "eraser", "fill", "picker"},
+    paintMode = false, paintCanvas = nil, paintWidth = 64, paintHeight = 64, paintScale = 1,
+    paintBrushColor = {1,1,1}, paintCurrentTool = "brush",
+    paintTools = {"brush", "eraser", "fill", "picker", "line", "rect", "ellipse"},
     paintColors = {
         {1,1,1}, {0,0,0}, {1,0,0}, {0,1,0}, {0,0,1}, {1,1,0}, {1,0,1}, {0,1,1},
         {0.5,0.5,0.5}, {1,0.5,0}, {0.5,0,0.5}, {0,0.5,0.5}
     },
     paintSizes = {1, 2, 4, 8},
+    paintPresetSizes = {{64,64}, {32,32}, {16,16}, {128,128}, {200,146}},
+    paintCustomInput = false, paintCustomInputText = "",
     showCube = false, showSphere = false, showImage = false,
     cubeX = 200, cubeY = 300, sphereX = 400, sphereY = 300,
     objectAngle = 0, objectColor = {0.2,0.8,0.4}, objectSize = 50,
@@ -536,58 +539,92 @@ function love.filedropped(file)
 end
 
 function initPaint()
-    State.paintCanvas = love.graphics.newCanvas(State.paintSize, State.paintSize)
+    State.paintCanvas = love.graphics.newCanvas(State.paintWidth, State.paintHeight)
     love.graphics.setCanvas(State.paintCanvas)
     love.graphics.clear()
     love.graphics.setCanvas()
+    State.paintCanvas:setFilter("linear", "linear")
+end
+function recalcPaintScale()
+    local maxW = 340
+    local maxH = 400
+    State.paintScale = math.min(maxW / State.paintWidth, maxH / State.paintHeight)
+end
+function resizePaintCanvas(w, h)
+    w = math.max(1, math.min(1024, w))
+    h = math.max(1, math.min(1024, h))
+    State.paintWidth, State.paintHeight = w, h
+    State.paintCanvas = love.graphics.newCanvas(w, h)
+    love.graphics.setCanvas(State.paintCanvas)
+    love.graphics.clear()
+    love.graphics.setCanvas()
+    recalcPaintScale()
 end
 function drawPaint()
     if not State.paintMode then return end
     love.graphics.setColor(0.1,0.1,0.1,0.95)
     love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+    local cx, cy = 20, 50
+    local pw = State.paintWidth * State.paintScale
+    local ph = State.paintHeight * State.paintScale
     love.graphics.setColor(1,1,1)
-    love.graphics.rectangle("line", 20, 50, State.paintSize*State.paintScale, State.paintSize*State.paintScale)
-    love.graphics.draw(State.paintCanvas, 20, 50, 0, State.paintScale, State.paintScale)
-    local px = 20 + State.paintSize*State.paintScale + 30
+    love.graphics.rectangle("line", cx, cy, pw, ph)
+    love.graphics.draw(State.paintCanvas, cx, cy, 0, State.paintScale, State.paintScale)
+    local px = cx + pw + 30
     love.graphics.setColor(0.2,0.2,0.2)
-    love.graphics.rectangle("fill", px-10, 50, 140, 280, 8)
+    love.graphics.rectangle("fill", px-10, 50, 140, 300, 8)
     love.graphics.setColor(1,1,1)
     love.graphics.print("Tools:", px, 60)
     for i, tool in ipairs(State.paintTools) do
-        local y = 90 + (i-1)*40
+        local y = 90 + (i-1)*32
         if State.paintCurrentTool == tool then love.graphics.setColor(0.4,0.6,1) else love.graphics.setColor(0.3,0.3,0.3) end
-        love.graphics.rectangle("fill", px, y, 120, 30, 5)
+        love.graphics.rectangle("fill", px, y, 120, 26, 5)
         love.graphics.setColor(1,1,1)
-        love.graphics.print(tool, px+5, y+7)
+        love.graphics.print(tool, px+5, y+5)
     end
-    love.graphics.print("Color:", px, 270)
-    for i, col in ipairs(State.paintColors) do
-        local cx = px + ((i-1) % 4) * 30
-        local cy = 290 + math.floor((i-1)/4) * 30
-        love.graphics.setColor(col)
-        love.graphics.rectangle("fill", cx, cy, 24, 24, 4)
-        love.graphics.setColor(1,1,1)
-        love.graphics.rectangle("line", cx, cy, 24, 24, 4)
-    end
-    love.graphics.print("Size:", px, 390)
+    love.graphics.print("Size:", px, 340)
     for i, sz in ipairs(State.paintSizes) do
         local sx = px + (i-1)*35
         if State.paintSize == sz then love.graphics.setColor(0.4,0.6,1) else love.graphics.setColor(0.3,0.3,0.3) end
-        love.graphics.rectangle("fill", sx, 410, 30, 30, 5)
+        love.graphics.rectangle("fill", sx, 360, 30, 30, 5)
         love.graphics.setColor(1,1,1)
-        love.graphics.print(sz, sx+10, 418)
+        love.graphics.print(sz, sx+10, 368)
+    end
+    love.graphics.print("Canvas:", px, 410)
+    local py = 430
+    for i, psz in ipairs(State.paintPresetSizes) do
+        local sx = px + ((i-1)%3) * 55
+        local sy = py + math.floor((i-1)/3) * 30
+        love.graphics.setColor(0.3,0.3,0.3)
+        love.graphics.rectangle("fill", sx, sy, 50, 24, 5)
+        love.graphics.setColor(1,1,1)
+        love.graphics.print(psz[1].."x"..psz[2], sx+4, sy+4)
+    end
+    local customY = py + 60
+    love.graphics.setColor(0.5,0.5,0.5)
+    love.graphics.rectangle("fill", px, customY, 120, 26, 5)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Custom...", px+10, customY+5)
+    if State.paintCustomInput then
+        love.graphics.setColor(0.2,0.2,0.2)
+        love.graphics.rectangle("fill", px, customY+32, 120, 26)
+        love.graphics.setColor(1,1,1)
+        love.graphics.print(State.paintCustomInputText, px+5, customY+37)
     end
     love.graphics.setColor(0.3,0.8,0.3)
-    love.graphics.rectangle("fill", px, 460, 120, 30, 5)
-    love.graphics.print("Save", px+40, 468)
+    love.graphics.rectangle("fill", px, 560, 120, 30, 5)
+    love.graphics.print("Save", px+40, 568)
     love.graphics.setColor(0.8,0.3,0.3)
-    love.graphics.rectangle("fill", px, 500, 120, 30, 5)
-    love.graphics.print("Close", px+40, 508)
+    love.graphics.rectangle("fill", px, 600, 120, 30, 5)
+    love.graphics.print("Close", px+40, 608)
 end
 function handlePaintTouch(x, y, isDown)
     if not State.paintMode then return false end
-    local px = 20 + State.paintSize*State.paintScale + 30
-    if y > 450 and y < 490 and x > px and x < px+120 then
+    local cx, cy = 20, 50
+    local pw = State.paintWidth * State.paintScale
+    local ph = State.paintHeight * State.paintScale
+    local px = cx + pw + 30
+    if y > 550 and y < 590 and x > px and x < px+120 then
         love.graphics.setCanvas()
         local obj = getCurrentObject()
         if obj then
@@ -596,57 +633,112 @@ function handlePaintTouch(x, y, isDown)
             imgData:encode("png", filename)
             obj.image = filename
         end
-        State.paintMode = false; return true
+        State.paintMode = false; State.paintCustomInput = false; return true
     end
-    if y > 490 and y < 530 and x > px and x < px+120 then
+    if y > 590 and y < 630 and x > px and x < px+120 then
         love.graphics.setCanvas()
-        State.paintMode = false; return true
+        State.paintMode = false; State.paintCustomInput = false; return true
     end
     for i, tool in ipairs(State.paintTools) do
-        local ty = 90 + (i-1)*40
-        if x > px and x < px+120 and y > ty and y < ty+30 then
+        local ty = 90 + (i-1)*32
+        if x > px and x < px+120 and y > ty and y < ty+26 then
             State.paintCurrentTool = tool
             if tool == "fill" then
                 love.graphics.setCanvas(State.paintCanvas)
                 love.graphics.setColor(State.paintBrushColor)
-                love.graphics.rectangle("fill", 0, 0, State.paintSize, State.paintSize)
+                love.graphics.rectangle("fill", 0, 0, State.paintWidth, State.paintHeight)
                 love.graphics.setCanvas()
             end
             return true
         end
     end
-    for i, col in ipairs(State.paintColors) do
-        local cx = px + ((i-1) % 4) * 30
-        local cy = 290 + math.floor((i-1)/4) * 30
-        if x > cx and x < cx+24 and y > cy and y < cy+24 then
-            State.paintBrushColor = col; return true
-        end
-    end
     for i, sz in ipairs(State.paintSizes) do
         local sx = px + (i-1)*35
-        if x > sx and x < sx+30 and y > 410 and y < 440 then
+        if x > sx and x < sx+30 and y > 360 and y < 390 then
             State.paintSize = sz; return true
         end
     end
-    local cx, cy = 20, 50
-    local pw = State.paintSize * State.paintScale
-    if x >= cx and x <= cx+pw and y >= cy and y <= cy+pw and isDown then
-        local px2 = math.floor((x - cx) / State.paintScale) + 1
-        local py2 = math.floor((y - cy) / State.paintScale) + 1
-        if px2 >= 1 and px2 <= State.paintSize and py2 >= 1 and py2 <= State.paintSize then
+    local py = 430
+    for i, psz in ipairs(State.paintPresetSizes) do
+        local sx = px + ((i-1)%3) * 55
+        local sy = py + math.floor((i-1)/3) * 30
+        if x > sx and x < sx+50 and y > sy and y < sy+24 then
+            resizePaintCanvas(psz[1], psz[2])
+            State.paintCustomInput = false
+            return true
+        end
+    end
+    local customY = py + 60
+    if x > px and x < px+120 and y > customY and y < customY+26 then
+        State.paintCustomInput = true
+        State.paintCustomInputText = ""
+        return true
+    end
+    if State.paintCustomInput and x > px and x < px+120 and y > customY+32 and y < customY+58 then
+        -- нажали на поле ввода – активируем клавиатуру
+        State.editingBlockIdx = nil
+        State.editingText = State.paintCustomInputText
+        State.keyboardVisible = true
+        State.paintCustomInputActive = true
+        return true
+    end
+    if x >= cx and x <= cx+pw and y >= cy and y <= cy+ph and isDown then
+        local pxc = math.floor((x - cx) / State.paintScale) + 1
+        local pyc = math.floor((y - cy) / State.paintScale) + 1
+        if pxc >= 1 and pxc <= State.paintWidth and pyc >= 1 and pyc <= State.paintHeight then
             love.graphics.setCanvas(State.paintCanvas)
-            if State.paintCurrentTool == "brush" then
-                love.graphics.setColor(State.paintBrushColor)
-                love.graphics.rectangle("fill", px2-1, py2-1, State.paintSize, State.paintSize)
+            local brushSize = State.paintSize
+            if State.paintCurrentTool == "brush" or State.paintCurrentTool == "eraser" then
+                local alpha = (State.paintCurrentTool == "eraser") and 0 or 1
+                for dx = -brushSize, brushSize do
+                    for dy = -brushSize, brushSize do
+                        local dist = math.sqrt(dx*dx + dy*dy)
+                        if dist <= brushSize then
+                            local a = (1 - dist/brushSize) * alpha
+                            if a > 0 then
+                                love.graphics.setColor(State.paintBrushColor[1], State.paintBrushColor[2], State.paintBrushColor[3], a)
+                                love.graphics.rectangle("fill", pxc+dx-1, pyc+dy-1, 1, 1)
+                            end
+                        end
+                    end
+                end
                 love.graphics.setCanvas()
-            elseif State.paintCurrentTool == "eraser" then
-                love.graphics.setColor(0,0,0,0)
-                love.graphics.rectangle("fill", px2-1, py2-1, State.paintSize, State.paintSize)
-                love.graphics.setCanvas()
+            elseif State.paintCurrentTool == "line" then
+                if not State.lineStart then
+                    State.lineStart = {pxc, pyc}
+                else
+                    love.graphics.setColor(State.paintBrushColor)
+                    love.graphics.setLineWidth(State.paintSize)
+                    love.graphics.line(State.lineStart[1], State.lineStart[2], pxc, pyc)
+                    love.graphics.setCanvas()
+                    State.lineStart = nil
+                end
+            elseif State.paintCurrentTool == "rect" then
+                if not State.rectStart then
+                    State.rectStart = {pxc, pyc}
+                else
+                    love.graphics.setColor(State.paintBrushColor)
+                    local w = pxc - State.rectStart[1]
+                    local h = pyc - State.rectStart[2]
+                    love.graphics.rectangle("fill", State.rectStart[1], State.rectStart[2], w, h)
+                    love.graphics.setCanvas()
+                    State.rectStart = nil
+                end
+            elseif State.paintCurrentTool == "ellipse" then
+                if not State.ellipseStart then
+                    State.ellipseStart = {pxc, pyc}
+                else
+                    love.graphics.setColor(State.paintBrushColor)
+                    local w = pxc - State.ellipseStart[1]
+                    local h = pyc - State.ellipseStart[2]
+                    love.graphics.ellipse("fill", State.ellipseStart[1], State.ellipseStart[2], w, h)
+                    love.graphics.setCanvas()
+                    State.ellipseStart = nil
+                end
             elseif State.paintCurrentTool == "picker" then
                 love.graphics.setCanvas()
                 local imgData = State.paintCanvas:newImageData()
-                local r,g,b,a = imgData:getPixel(px2-1, py2-1)
+                local r,g,b,a = imgData:getPixel(pxc-1, pyc-1)
                 State.paintBrushColor = {r,g,b}
                 State.paintCurrentTool = "brush"
             else
@@ -773,6 +865,7 @@ function love.load()
     State.project = saved or defaultProject()
     updateWorkspaceBlocks()
     initPaint()
+    recalcPaintScale()
     calculateHeights()
 end
 function love.draw()
@@ -890,16 +983,42 @@ function love.wheelmoved(x, y)
     if x <= State.paletteWidth then State.paletteScrollY = State.paletteScrollY - y * 30
     else State.workspaceScrollY = State.workspaceScrollY - y * 30 end
 end
-function love.textinput(t) end
+function love.textinput(t)
+    if State.paintCustomInput and State.keyboardVisible then
+        State.paintCustomInputText = State.paintCustomInputText .. t
+        State.editingText = State.paintCustomInputText
+    elseif State.editingBlockIdx and not State.paintCustomInput then
+        State.editingText = State.editingText .. t
+    end
+end
 function love.keypressed(key)
-    local ctrl = love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")
-    if ctrl and key == "c" then copyBlock()
-    elseif ctrl and key == "v" then
-        if State.editingBlockIdx then
-            local clip = love.system.getClipboardText()
-            if clip then State.editingText = State.editingText .. safeUTF8(clip) end
+    if State.paintCustomInput and State.keyboardVisible then
+        if key == "return" or key == "kpenter" then
+            local w, h = State.paintCustomInputText:match("(%d+)%s*[xX]%s*(%d+)")
+            if w and h then
+                resizePaintCanvas(tonumber(w), tonumber(h))
+            end
+            State.paintCustomInput = false
+            State.paintCustomInputText = ""
+            State.keyboardVisible = false
+        elseif key == "escape" then
+            State.paintCustomInput = false
+            State.paintCustomInputText = ""
+            State.keyboardVisible = false
+        elseif key == "backspace" then
+            State.paintCustomInputText = State.paintCustomInputText:sub(1, -2)
+            State.editingText = State.paintCustomInputText
         end
-    elseif key == "f5" then runProject()
-    elseif key == "f2" then saveProject("project.cat")
+    else
+        local ctrl = love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")
+        if ctrl and key == "c" then copyBlock()
+        elseif ctrl and key == "v" then
+            if State.editingBlockIdx then
+                local clip = love.system.getClipboardText()
+                if clip then State.editingText = State.editingText .. safeUTF8(clip) end
+            end
+        elseif key == "f5" then runProject()
+        elseif key == "f2" then saveProject("project.cat")
+        end
     end
 end
