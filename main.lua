@@ -1,5 +1,5 @@
 -- Pocket Cat 2.0 – всё в одном main.lua
--- Сцены, объекты, Paint, кастомная клавиатура, сохранение/загрузка, выполнение
+-- Сцены, объекты, Paint, кастомная клавиатура, Firebase, .cat, плагины
 
 -- ======================== ГЛОБАЛЬНОЕ СОСТОЯНИЕ ========================
 State = {
@@ -19,28 +19,40 @@ State = {
         draw     = {0.2, 0.8, 0.8},
         text     = {1.0, 1.0, 1.0},
         sensing  = {0.7, 0.7, 0.7},
+        firebase = {1.0, 0.7, 0.0},
     },
     paletteBlocks = {
+        -- События
         {type="event", name="start",   label="при старте",           category="event"},
         {type="event", name="tap",     label="при нажатии",          category="event"},
         {type="event", name="release", label="при отпускании",       category="event"},
         {type="event", name="touch",   label="при касании",          category="event"},
+        -- Движение
         {type="action", name="changeX",label="изменить X на",        param=10, category="motion"},
         {type="action", name="changeY",label="изменить Y на",        param=10, category="motion"},
         {type="action", name="setX",   label="установить X в",       param=200, category="motion"},
         {type="action", name="setY",   label="установить Y в",       param=200, category="motion"},
         {type="action", name="turn",   label="повернуть на",         param=15, category="motion"},
+        -- Внешность
         {type="action", name="showCube",   label="показать куб",      category="looks"},
         {type="action", name="showSphere", label="показать сферу",    category="looks"},
         {type="action", name="hide",   label="скрыть объект",         category="looks"},
         {type="action", name="show",   label="показать объект",       category="looks"},
         {type="action", name="setColor",   label="установить цвет",  param="green", category="looks"},
         {type="action", name="setSize",    label="установить размер", param=50, category="looks"},
+        -- Управление
         {type="action", name="wait",   label="ждать",                 param=1, category="control"},
         {type="action", name="repeat", label="повторить 3 раза",      param=3, category="control"},
         {type="action", name="ifTap",  label="если нажато",           category="control"},
         {type="action", name="stopAll",label="остановить всё",        category="control"},
+        -- Текст
         {type="action", name="printText",label="вывести текст",       param="Привет!", category="text"},
+        -- Firebase
+        {type="action", name="fb_set",    label="сохранить в FB",    param="key:value", category="firebase"},
+        {type="action", name="fb_get",    label="прочитать из FB",   param="key",       category="firebase"},
+        {type="action", name="fb_delete", label="удалить из FB",     param="key",       category="firebase"},
+        {type="action", name="fb_push",   label="добавить в FB",     param="value",     category="firebase"},
+        {type="action", name="fb_update", label="обновить в FB",     param="key:value", category="firebase"},
     },
 
     -- рабочее пространство
@@ -82,7 +94,6 @@ State = {
     ruKeys = {{"й","ц","у","к","е","н","г","ш","щ","з","х","ъ"},{"ф","ы","в","а","п","р","о","л","д","ж","э"},{"я","ч","с","м","и","т","ь","б","ю","ё"}},
     enKeys = {{"q","w","e","r","t","y","u","i","o","p"},{"a","s","d","f","g","h","j","k","l"},{"z","x","c","v","b","n","m"}},
 
-    -- сцены и объекты (инициализация позже)
     -- paint
     paintMode = false,
     paintCanvas = nil,
@@ -117,7 +128,113 @@ State = {
     vars = {},
     font = nil,
     fontSize = 16,
+
+    -- плагины
+    plugins = {},
 }
+
+-- ======================== FIREBASE (эмуляция) ========================
+local Firebase = {
+    baseURL = "https://pocketcat-default-rtdb.firebaseio.com/",
+    useReal = false,
+}
+
+function Firebase.httpGet(path)
+    if not Firebase.useReal then
+        local content = love.filesystem.read("fb_data.json")
+        if content then
+            local data = json.decode(content) or {}
+            return data[path]
+        end
+        return nil
+    end
+    local http = require("socket.http")
+    local res, code = http.request(Firebase.baseURL .. path .. ".json")
+    if code == 200 then
+        return json.decode(res)
+    end
+    return nil
+end
+
+function Firebase.httpPut(path, value)
+    if not Firebase.useReal then
+        local content = love.filesystem.read("fb_data.json") or "{}"
+        local data = json.decode(content) or {}
+        data[path] = value
+        love.filesystem.write("fb_data.json", json.encode(data))
+        return true
+    end
+    local http = require("socket.http")
+    local body = json.encode(value)
+    local res, code = http.request(Firebase.baseURL .. path .. ".json", body)
+    return code == 200
+end
+
+function Firebase.httpDelete(path)
+    if not Firebase.useReal then
+        local content = love.filesystem.read("fb_data.json") or "{}"
+        local data = json.decode(content) or {}
+        data[path] = nil
+        love.filesystem.write("fb_data.json", json.encode(data))
+        return true
+    end
+    local http = require("socket.http")
+    local res, code = http.request(Firebase.baseURL .. path .. ".json", {method = "DELETE"})
+    return code == 200
+end
+
+-- ======================== JSON (простой) ========================
+json = {}
+
+function json.encode(obj)
+    if type(obj) == "table" then
+        local t = {}
+        for k, v in pairs(obj) do
+            table.insert(t, '"' .. tostring(k) .. '":' .. json.encode(v))
+        end
+        return "{" .. table.concat(t, ",") .. "}"
+    elseif type(obj) == "string" then
+        return '"' .. obj .. '"'
+    elseif type(obj) == "number" then
+        return tostring(obj)
+    elseif type(obj) == "boolean" then
+        return obj and "true" or "false"
+    else
+        return "null"
+    end
+end
+
+function json.decode(str)
+    str = str:gsub("%s", "")
+    local pos = 1
+    local function parseValue()
+        local c = str:sub(pos, pos)
+        if c == '{' then
+            pos = pos + 1
+            local obj = {}
+            while str:sub(pos, pos) ~= '}' do
+                local key = parseValue()
+                pos = pos + 1  -- пропускаем ':'
+                local val = parseValue()
+                obj[key] = val
+                if str:sub(pos, pos) == ',' then pos = pos + 1 end
+            end
+            pos = pos + 1
+            return obj
+        elseif c == '"' then
+            local start = pos + 1
+            local finish = str:find('"', start)
+            local val = str:sub(start, finish-1)
+            pos = finish + 1
+            return val
+        elseif c:match("[%d]") then
+            local val = str:match("([%d.]+)", pos)
+            pos = pos + #val
+            return tonumber(val)
+        end
+    end
+    return parseValue()
+end
 
 -- ======================== ПРОЕКТ (сцены/объекты) ========================
 function defaultProject()
@@ -239,14 +356,51 @@ function drawWorkspace()
     love.graphics.setScissor()
 end
 
--- ======================== КНОПКА ЗАПУСКА ========================
-function drawRunButton()
+-- ======================== КНОПКИ ========================
+function drawButtons()
+    -- Кнопка запуска
     local rx = love.graphics.getWidth() - 50
     local ry = 15
     love.graphics.setColor(0,1,0)
     love.graphics.circle("fill", rx, ry, 22)
     love.graphics.setColor(1,1,1)
     love.graphics.print("▶", rx-12, ry-10, 0, 1.6)
+
+    -- Кнопки Firebase
+    local btnY = 50
+    love.graphics.setColor(0.2, 0.5, 1.0)
+    love.graphics.rectangle("fill", love.graphics.getWidth() - 150, btnY, 140, 30)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("☁ Сохранить (.cat)", love.graphics.getWidth() - 145, btnY+8)
+
+    btnY = btnY + 35
+    love.graphics.setColor(0.2, 0.5, 1.0)
+    love.graphics.rectangle("fill", love.graphics.getWidth() - 150, btnY, 140, 30)
+    love.graphics.print("☁ Загрузить (.cat)", love.graphics.getWidth() - 145, btnY+8)
+end
+
+function checkButtonClick(x, y)
+    local rx = love.graphics.getWidth() - 50
+    if math.sqrt((x-rx)^2 + (y-15)^2) <= 22 then
+        runProject()
+        return true
+    end
+
+    local btnY = 50
+    if x >= love.graphics.getWidth() - 150 and x <= love.graphics.getWidth() - 10 and y >= btnY and y <= btnY+30 then
+        saveProject("project.cat")
+        return true
+    end
+    btnY = btnY + 35
+    if x >= love.graphics.getWidth() - 150 and x <= love.graphics.getWidth() - 10 and y >= btnY and y <= btnY+30 then
+        local saved = loadProject("project.cat")
+        if saved then
+            State.project = saved
+            updateWorkspaceBlocks()
+        end
+        return true
+    end
+    return false
 end
 
 -- ======================== ВЫПОЛНЕНИЕ БЛОКОВ ========================
@@ -290,6 +444,46 @@ function executeActions(actions)
             if not State.isTapped then return true end
         elseif act.name == "stopAll" then State.stopAll = true; return true
         elseif act.name == "printText" then table.insert(State.messages, tostring(p or "Привет!"))
+
+        -- Firebase блоки
+        elseif act.name == "fb_set" then
+            local key, val = p:match("([%w_]+):(.+)")
+            if not key then key = "data"; val = p end
+            if tonumber(val) then val = tonumber(val)
+            elseif val == "true" then val = true
+            elseif val == "false" then val = false
+            end
+            Firebase.httpPut(key, val)
+            table.insert(State.messages, "✅ Сохранено: " .. key)
+        elseif act.name == "fb_get" then
+            local key = p or "data"
+            local val = Firebase.httpGet(key)
+            if val ~= nil then
+                State.vars[key] = val
+                table.insert(State.messages, "📥 " .. key .. " = " .. tostring(val))
+            else
+                table.insert(State.messages, "❌ Ключ " .. key .. " не найден")
+            end
+        elseif act.name == "fb_delete" then
+            local key = p or "data"
+            Firebase.httpDelete(key)
+            table.insert(State.messages, "🗑 Удалено: " .. key)
+        elseif act.name == "fb_push" then
+            local val = p or "0"
+            if tonumber(val) then val = tonumber(val) end
+            local list = Firebase.httpGet("list") or {}
+            table.insert(list, val)
+            Firebase.httpPut("list", list)
+            table.insert(State.messages, "➕ Добавлено: " .. tostring(val))
+        elseif act.name == "fb_update" then
+            local key, val = p:match("([%w_]+):(.+)")
+            if key and val then
+                if tonumber(val) then val = tonumber(val) end
+                local data = Firebase.httpGet(key) or {}
+                data[key] = val
+                Firebase.httpPut(key, data)
+                table.insert(State.messages, "🔄 Обновлено: " .. key)
+            end
         end
         i = i + 1
     end
@@ -553,10 +747,8 @@ end
 
 function handlePaintTouch(x, y, isDown)
     if not State.paintMode then return false end
-    -- кнопки
     if y > 390 and y < 430 then
         if x > 120 and x < 220 then
-            -- сохранить
             local scene = getCurrentScene()
             local obj = getCurrentObject()
             if scene and obj then
@@ -687,10 +879,11 @@ end
 -- ======================== ОСНОВНЫЕ КОЛЛБЭКИ ========================
 function love.load()
     State.font = love.graphics.getFont()
-    local saved = loadProject("project.yml")
+    local saved = loadProject("project.cat") or loadProject("project.yml")
     State.project = saved or defaultProject()
     updateWorkspaceBlocks()
     initPaint()
+    calculateHeights()
 end
 
 function love.draw()
@@ -699,7 +892,6 @@ function love.draw()
     drawPalette()
     drawWorkspace()
     drawTabs()
-    -- редактор параметра и клавиатура
     if State.editingBlockIdx then
         local block = State.workspaceBlocks[State.editingBlockIdx]
         local bx = State.workspaceStartX
@@ -712,9 +904,8 @@ function love.draw()
     end
     drawKeyboard()
     drawPaint()
-    drawRunButton()
+    drawButtons()
     drawSceneObjects()
-    -- сообщения
     love.graphics.setFont(State.font)
     local msgY = State.workspaceStartY + #State.workspaceBlocks*(State.blockHeight+State.blockSpacing) + 20 - State.workspaceScrollY
     for _, msg in ipairs(State.messages) do
@@ -735,7 +926,6 @@ function love.update(dt)
         State.waitTimer = State.waitTimer - dt
         if State.waitTimer <= 0 then State.waitTimer = 0 end
     end
-    -- долгое нажатие на блок
     if State.longPressBlockIdx and not State.longPressMoved then
         if love.timer.getTime() - State.longPressStartTime > 0.5 then
             table.remove(State.workspaceBlocks, State.longPressBlockIdx)
@@ -755,8 +945,7 @@ function love.mousepressed(x, y, button)
         if handlePaintTouch(x, y, true) then return end
     end
     if State.keyboardVisible and handleKeyboardTouch(x, y) then return end
-    local rx = love.graphics.getWidth() - 50
-    if math.sqrt((x-rx)^2 + (y-15)^2) <= 22 then runProject(); return end
+    if checkButtonClick(x, y) then return end
     if y <= 60 and handleTabsClick(x, y) then return end
     if x <= State.paletteWidth then
         local yPal = 10 - State.paletteScrollY
@@ -835,14 +1024,10 @@ function love.wheelmoved(x, y)
     end
 end
 
-function love.textinput(t)
-    -- не используется, оставил для совместимости с ПК-клавиатурой (опционально)
-end
-
 function love.keypressed(key)
     if key == "f5" then
         runProject()
     elseif key == "f2" then
-        saveProject("project.yml")
+        saveProject("project.cat")
     end
 end
