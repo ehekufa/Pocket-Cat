@@ -19,12 +19,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # Используем предустановленный sdkmanager, без setup-android
       - name: Установить компоненты Android SDK
         run: |
-          # Соглашаемся с лицензиями
           yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
-          # Устанавливаем платформу, build-tools, NDK и CMake
           $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager \
             "platforms;android-33" \
             "build-tools;33.0.0" \
@@ -34,8 +31,13 @@ jobs:
       - name: Клонировать love-android шаблон
         run: git clone https://github.com/love2d/love-android.git --depth 1
 
-      - name: Заменить ndkVersion в build.gradle на 23.1.7779620
-        run: sed -i 's/ndkVersion ".*"/ndkVersion "23.1.7779620"/' love-android/app/build.gradle
+      - name: Исправить ndkVersion в build.gradle
+        run: |
+          sed -i 's/^[[:space:]]*ndkVersion\s*["'"'"'].*["'"'"']/ndkVersion "23.1.7779620"/' love-android/app/build.gradle
+          if ! grep -q 'ndkVersion "23.1.7779620"' love-android/app/build.gradle; then
+            echo "ndkVersion не найден — удаляю все строки ndkVersion"
+            sed -i '/^[[:space:]]*ndkVersion/d' love-android/app/build.gradle
+          fi
 
       - name: Настроить local.properties
         run: |
