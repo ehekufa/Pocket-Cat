@@ -31,18 +31,14 @@ jobs:
       - name: Клонировать love-android шаблон
         run: git clone https://github.com/love2d/love-android.git --depth 1
 
-      - name: Исправить ndkVersion в build.gradle
+      - name: Прописать ndkVersion 23.1.7779620 в build.gradle
         run: |
-          sed -i 's/^[[:space:]]*ndkVersion\s*["'"'"'].*["'"'"']/ndkVersion "23.1.7779620"/' love-android/app/build.gradle
-          if ! grep -q 'ndkVersion "23.1.7779620"' love-android/app/build.gradle; then
-            echo "ndkVersion не найден — удаляю все строки ndkVersion"
-            sed -i '/^[[:space:]]*ndkVersion/d' love-android/app/build.gradle
-          fi
+          sed -i 's/ndkVersion ".*"/ndkVersion "23.1.7779620"/' love-android/app/build.gradle
 
-      - name: Настроить local.properties
+      - name: Настроить local.properties (без ndk.dir!)
         run: |
           echo "sdk.dir=$ANDROID_SDK_ROOT" > love-android/local.properties
-          echo "ndk.dir=$ANDROID_SDK_ROOT/ndk/23.1.7779620" >> love-android/local.properties
+          echo "cmake.dir=$ANDROID_SDK_ROOT/cmake/3.22.1" >> love-android/local.properties
 
       - name: Собрать .love и подготовить assets
         run: |
