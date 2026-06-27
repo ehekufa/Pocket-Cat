@@ -697,7 +697,6 @@ function handlePaintTouch(x, y, isDown)
     local pw = State.paintWidth * State.paintScale
     local ph = State.paintHeight * State.paintScale
     local px = cx + pw + 30
-    local customY = 430 + 60 + 32 + 60 + 10
     if y > 550 and y < 590 and x > px and x < px+120 then
         love.graphics.setCanvas()
         local obj = getCurrentObject()
