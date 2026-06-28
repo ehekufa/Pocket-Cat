@@ -1,6 +1,6 @@
 function love.conf(t)
     t.title = "Pocket Cat"
-    t.version = "11.5"
+    t.version = "12.0"
     t.console = false
 
     t.window.width = 1024          -- фиксированный размер окна
