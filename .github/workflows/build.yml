@@ -1,11 +1,12 @@
-name: Build_PocketCat_Android_Debug
+name: Build PocketCat (Release Android + Portable Windows)
 
 on:
   push:
   workflow_dispatch:
 
 jobs:
-  build-android-debug:
+  # ---------- Android Release ----------
+  build-android-release:
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -19,7 +20,8 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
-      - uses: actions/cache@v4
+      - name: Cache NDK
+        uses: actions/cache@v4
         with:
           path: ${{ env.ANDROID_HOME }}/ndk/25.2.9519653
           key: ndk-25.2.9519653-v2
@@ -35,7 +37,8 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
           echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/25.2.9519653" >> $GITHUB_ENV
 
-      - uses: actions/cache@v4
+      - name: Cache love-android
+        uses: actions/cache@v4
         with:
           path: love-android
           key: love-android-src-v2
@@ -46,14 +49,16 @@ jobs:
             git clone --recursive --depth 1 https://github.com/love2d/love-android.git
           fi
 
-      - uses: actions/cache@v4
+      - name: Cache Gradle
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
           key: gradle-v2
 
-      - uses: actions/cache@v4
+      - name: Cache native build
+        uses: actions/cache@v4
         with:
           path: |
             love-android/app/.cxx
@@ -61,8 +66,7 @@ jobs:
           key: native-v2
 
       - name: Package game.love
-        run: |
-          zip -9 -r game.love . -x "*.git*" -x ".github/*" -x "love-android/*" -x "*.yml"
+        run: zip -9 -r game.love . -x "*.git*" -x ".github/*" -x "love-android/*" -x "*.yml"
 
       - name: Embed game
         run: |
@@ -74,19 +78,125 @@ jobs:
           sed -i '/abiFilters/d' love-android/app/build.gradle
           sed -i '/defaultConfig {/a\        ndk { abiFilters "arm64-v8a" }' love-android/app/build.gradle
 
-      - name: Build Debug APK
+      # ---------- Подпись релизной сборки ----------
+      - name: Create keystore (if no secrets)
+        id: create_keystore
+        run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "Generating temporary keystore..."
+            keytool -genkey -v -keystore release.keystore -alias pocketcat -keyalg RSA -keysize 2048 \
+              -validity 10000 -dname "CN=PocketCat, OU=Dev, O=Dev, L=City, S=State, C=RU" \
+              -storepass pocketcat -keypass pocketcat
+            echo "KEYSTORE_BASE64=$(base64 -w0 release.keystore)" >> $GITHUB_ENV
+            echo "KEYSTORE_PASSWORD=pocketcat" >> $GITHUB_ENV
+            echo "KEY_ALIAS=pocketcat" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=pocketcat" >> $GITHUB_ENV
+          else
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+            echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+          fi
+
+      - name: Configure signing in build.gradle
+        run: |
+          cat << EOF >> love-android/app/build.gradle
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file('../../release.keystore')
+                      storePassword System.getenv("KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("KEY_ALIAS")
+                      keyPassword System.getenv("KEY_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                  }
+              }
+          }
+          EOF
+
+      - name: Build Release APK
         working-directory: love-android
-        run: ./gradlew assembleEmbedNoRecordDebug --no-daemon --parallel --console=plain
+        run: ./gradlew assembleEmbedNoRecordRelease --no-daemon --parallel --console=plain
 
       - name: Collect APK
         run: |
-          APK=$(find love-android -name "*.apk" | head -1)
-          APK_NAME="PocketCat_Debug_$(date +'%Y%m%d_%H%M').apk"
-          cp "$APK" "$APK_NAME"
-          echo "apk-name=$APK_NAME" >> $GITHUB_OUTPUT
+          APK_PATH="love-android/app/build/outputs/apk/embedNoRecord/release/app-embedNoRecord-release.apk"
+          if [ -f "$APK_PATH" ]; then
+            cp "$APK_PATH" PocketCat_Release.apk
+          else
+            echo "APK not found!" && exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: PocketCat_Debug_APK
-          path: PocketCat_Debug_*.apk
+          name: PocketCat_Android_Release
+          path: PocketCat_Release.apk
+          compression-level: 0
+
+  # ---------- Windows Portable ----------
+  build-windows-portable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package game.love
+        run: zip -9 -r game.love . -x "*.git*" -x ".github/*" -x "love-android/*" -x "*.yml"
+
+      - name: Download LÖVE Windows 64-bit
+        run: |
+          wget -O love-windows.zip "https://github.com/love2d/love/releases/download/11.5/love-11.5-win64.zip"
+          unzip love-windows.zip -d love-windows
+
+      - name: Download LÖVE Windows 32-bit
+        run: |
+          wget -O love-windows32.zip "https://github.com/love2d/love/releases/download/11.5/love-11.5-win32.zip"
+          unzip love-windows32.zip -d love-windows32
+
+      - name: Create Portable EXE (64-bit)
+        run: |
+          mkdir -p dist/PocketCat64
+          cp love-windows/love-11.5-win64/* dist/PocketCat64/
+          cat game.love >> dist/PocketCat64/love.exe
+          mv dist/PocketCat64/love.exe dist/PocketCat64/PocketCat.exe
+
+      - name: Create Portable EXE (32-bit)
+        run: |
+          mkdir -p dist/PocketCat32
+          cp love-windows32/love-11.5-win32/* dist/PocketCat32/
+          cat game.love >> dist/PocketCat32/love.exe
+          mv dist/PocketCat32/love.exe dist/PocketCat32/PocketCat32.exe
+
+      - name: Install Wine and rcedit (for icon)
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y wine wine32 wine64
+          wget -O rcedit-x64.exe https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe
+
+      - name: Set icon (if exists)
+        run: |
+          if [ -f "icon.ico" ]; then
+            wine rcedit-x64.exe dist/PocketCat64/PocketCat.exe --set-icon icon.ico
+            wine rcedit-x64.exe dist/PocketCat32/PocketCat32.exe --set-icon icon.ico
+          fi
+        continue-on-error: true
+
+      - name: Create ZIP archive
+        run: |
+          cd dist
+          zip -9 -r ../PocketCat_Windows_Portable.zip PocketCat64/ PocketCat32/
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketCat_Windows_Portable
+          path: PocketCat_Windows_Portable.zip
           compression-level: 0
