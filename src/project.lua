@@ -79,30 +79,57 @@ function M.addObject()
     blocks.updateWorkspace()
 end
 
+-- ИСПРАВЛЕННАЯ ФУНКЦИЯ
 function M.handleFileDrop(file)
-    -- Получаем имя файла (в LÖVE 11.4+ используется file:getFilename(), в 11.3 - file.name)
+    -- file может быть объектом FileData или строкой с путём
     local fname
-    if type(file) == "string" then
+    local isString = type(file) == "string"
+    if isString then
         fname = file
-    elseif file.getFilename then
-        fname = file:getFilename()
     else
-        fname = file.name or tostring(file)
+        -- Если это объект, у него может быть метод getFilename или getExtension
+        fname = file:getFilename() or file:getName() or tostring(file)
     end
-    if not fname then return end
-
-    local ext = fname:match("%.([^.]+)$")
-    if not ext then return end
-    ext = ext:lower()
+    
+    -- Если всё ещё nil, пробуем извлечь из пути
+    if not fname or fname == "" then
+        fname = tostring(file)
+    end
+    
+    -- Получаем расширение (без точки)
+    local ext = ""
+    local dotPos = fname:find("%.[^.]+$")
+    if dotPos then
+        ext = fname:sub(dotPos + 1):lower()
+    end
+    
     local destFolder = "sprites/"
-    if ext == "ogg" or ext == "mp3" or ext == "wav" then destFolder = "sounds/" end
-    love.filesystem.createDirectory(destFolder)
-    local destName = destFolder .. love.filesystem.getBasename(fname) .. "." .. ext
+    if ext == "ogg" or ext == "mp3" or ext == "wav" then
+        destFolder = "sounds/"
+    end
+    
+    -- Получаем базовое имя без расширения
+    local baseName = fname:match("^(.+)%.[^.]+$") or fname
+    -- Убираем путь, оставляем только имя файла
+    baseName = baseName:match("([^/\\]+)$") or baseName
+    
+    local destName = destFolder .. baseName .. "." .. ext
+    
     -- Копируем файл
-    local data = love.filesystem.read(fname)
+    love.filesystem.createDirectory(destFolder)
+    local data
+    if isString then
+        data = love.filesystem.read(fname)
+    else
+        -- если это FileData, читаем из него
+        data = file:getString()
+    end
+    
     if data then
         love.filesystem.write(destName, data)
     end
+    
+    -- Привязываем к текущему объекту
     local obj = M.getCurrentObject()
     if obj then
         if destFolder == "sprites/" then
