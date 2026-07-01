@@ -7,7 +7,6 @@ local utils = require("src.utils")
 
 local M = {}
 
--- Функция calculateHeights теперь определена
 function M.calculateHeights()
     blocks.calculateHeights()
 end
@@ -55,11 +54,15 @@ function M.drawTabs()
 end
 
 function M.drawButtons()
+    -- Кнопка запуска (зелёный круг с ">")
     local rx = love.graphics.getWidth() - 50
     love.graphics.setColor(0,1,0)
     love.graphics.circle("fill", rx, 15, 22)
     love.graphics.setColor(1,1,1)
     love.graphics.print(">", rx-8, 5, 0, 1.6)
+    -- Запоминаем координаты для обработки клика
+    State.runButton = {x = rx, y = 15, r = 22}
+
     local btnY = 50
     love.graphics.setColor(0.2,0.5,1.0)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
@@ -92,6 +95,7 @@ function M.drawMessages()
 end
 
 function M.handleClick(x, y)
+    -- Верхние вкладки (сцены и объекты)
     if y <= 60 then
         if y >= 5 and y <= 30 then
             local sx = 70
@@ -127,7 +131,7 @@ function M.handleClick(x, y)
                         return true
                     end
                     if x >= ox+w+35 and x <= ox+w+60 then
-                        -- можно открыть диалог выбора файла
+                        -- Открыть выбор файла (через love.filedropped)
                         return true
                     end
                     ox = ox + w + 65
@@ -139,11 +143,15 @@ function M.handleClick(x, y)
             end
         end
     else
-        local rx = love.graphics.getWidth() - 50
-        if math.sqrt((x-rx)^2 + (y-15)^2) <= 22 then
-            runtime.runProject()
-            return true
+        -- Кнопка запуска (зелёный круг)
+        if State.runButton then
+            local bx, by, br = State.runButton.x, State.runButton.y, State.runButton.r
+            if (x - bx)^2 + (y - by)^2 <= br^2 then
+                runtime.runProject()
+                return true
+            end
         end
+        -- Остальные кнопки (Save, Load, Copy, Paste, Variables)
         local btnY = 50
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
             project.saveProject("project.cat")
@@ -180,7 +188,6 @@ function M.handleClick(x, y)
     return false
 end
 
--- Обработка долгого нажатия (удаление блока)
 function M.updateLongPress(dt)
     if State.longPressBlockIdx and not State.longPressMoved then
         if love.timer.getTime() - State.longPressStartTime > 0.5 then
