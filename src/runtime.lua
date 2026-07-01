@@ -46,7 +46,7 @@ function M.executeActions(actions, env)
         if a.name == "setVar" then
             local varName = a.paramName or "var"
             State.vars[varName] = p
-            table.insert(State.varList, varName) -- для отображения
+            table.insert(State.varList, varName)
         elseif a.name == "changeVar" then
             local varName = a.paramName or "var"
             State.vars[varName] = (State.vars[varName] or 0) + (tonumber(p) or 0)
@@ -55,35 +55,50 @@ function M.executeActions(actions, env)
             table.insert(State.messages, varName .. " = " .. tostring(State.vars[varName] or 0))
 
         -- Движение
-        elseif a.name == "changeX" then State.cubeX = State.cubeX + (tonumber(p) or 10)
-        elseif a.name == "changeY" then State.cubeY = State.cubeY + (tonumber(p) or 10)
-        elseif a.name == "setX" then State.cubeX = tonumber(p) or 200
-        elseif a.name == "setY" then State.cubeY = tonumber(p) or 200
-        elseif a.name == "turn" then State.objectAngle = State.objectAngle + (tonumber(p) or 15)
+        elseif a.name == "changeX" then
+            State.cubeX = State.cubeX + (tonumber(p) or 10)
+        elseif a.name == "changeY" then
+            State.cubeY = State.cubeY + (tonumber(p) or 10)
+        elseif a.name == "setX" then
+            State.cubeX = tonumber(p) or 200
+        elseif a.name == "setY" then
+            State.cubeY = tonumber(p) or 200
+        elseif a.name == "turn" then
+            State.objectAngle = State.objectAngle + (tonumber(p) or 15)
 
         -- Внешний вид
-        elseif a.name == "showCube" then State.showCube = true; State.showImage = false; State.showSphere = false
-        elseif a.name == "showSphere" then State.showSphere = true; State.showImage = false; State.showCube = false
-        elseif a.name == "showImage" then State.showImage = true; State.showCube = false; State.showSphere = false
-        elseif a.name == "hide" then State.showCube, State.showSphere, State.showImage = false, false, false
-        elseif a.name == "show" then State.showImage = true
+        elseif a.name == "showCube" then
+            State.showCube = true; State.showImage = false; State.showSphere = false
+        elseif a.name == "showSphere" then
+            State.showSphere = true; State.showImage = false; State.showCube = false
+        elseif a.name == "showImage" then
+            State.showImage = true; State.showCube = false; State.showSphere = false
+        elseif a.name == "hide" then
+            State.showCube, State.showSphere, State.showImage = false, false, false
+        elseif a.name == "show" then
+            State.showImage = true
         elseif a.name == "setColor" then
             if p == "green" then State.objectColor = {0.2,0.8,0.4}
             elseif p == "red" then State.objectColor = {0.9,0.2,0.2}
             elseif p == "blue" then State.objectColor = {0.2,0.4,1.0}
             end
-        elseif a.name == "setSize" then State.objectSize = tonumber(p) or 50
+        elseif a.name == "setSize" then
+            State.objectSize = tonumber(p) or 50
 
         -- Перо
-        elseif a.name == "penDown" then State.penDown = true
-        elseif a.name == "penUp" then State.penDown = false
-        elseif a.name == "penClear" then State.penPoints = {}
+        elseif a.name == "penDown" then
+            State.penDown = true
+        elseif a.name == "penUp" then
+            State.penDown = false
+        elseif a.name == "penClear" then
+            State.penPoints = {}
         elseif a.name == "penColor" then
             if p == "green" then State.penColor = {0.2,0.8,0.4}
             elseif p == "red" then State.penColor = {0.9,0.2,0.2}
             elseif p == "blue" then State.penColor = {0.2,0.4,1.0}
             end
-        elseif a.name == "penSize" then State.penSize = tonumber(p) or 2
+        elseif a.name == "penSize" then
+            State.penSize = tonumber(p) or 2
 
         -- Звук
         elseif a.name == "playSound" then
@@ -94,20 +109,36 @@ function M.executeActions(actions, env)
             end
 
         -- Управление
-        elseif a.name == "wait" then State.waitTimer = tonumber(p) or 1; return true
-        elseif a.name == "ifTap" then if not State.isTapped then return true end
-        elseif a.name == "stopAll" then State.stopAll = true; return true
+        elseif a.name == "wait" then
+            State.waitTimer = tonumber(p) or 1
+            return true
+        elseif a.name == "ifTap" then
+            if not State.isTapped then return true end
+        elseif a.name == "stopAll" then
+            State.stopAll = true
+            return true
 
         -- Текст и сенсоры
-        elseif a.name == "printText" then table.insert(State.messages, tostring(p or "Hello!"))
-        elseif a.name == "mouseX" then table.insert(State.messages, "mouse X: "..love.mouse.getX())
-        elseif a.name == "mouseY" then table.insert(State.messages, "mouse Y: "..love.mouse.getY())
+        elseif a.name == "printText" then
+            table.insert(State.messages, tostring(p or "Hello!"))
+        elseif a.name == "mouseX" then
+            table.insert(State.messages, "mouse X: "..love.mouse.getX())
+        elseif a.name == "mouseY" then
+            table.insert(State.messages, "mouse Y: "..love.mouse.getY())
         elseif a.name == "touchX" then
             local touches = love.touch.getTouches()
-            if touches[1] then table.insert(State.messages, "touch X: "..love.touch.getPosition(touches[1])) else table.insert(State.messages, "no touch") end
+            if touches[1] then
+                table.insert(State.messages, "touch X: "..love.touch.getPosition(touches[1]))
+            else
+                table.insert(State.messages, "no touch")
+            end
         elseif a.name == "touchY" then
             local touches = love.touch.getTouches()
-            if touches[1] then table.insert(State.messages, "touch Y: "..select(2, love.touch.getPosition(touches[1]))) else table.insert(State.messages, "no touch") end
+            if touches[1] then
+                table.insert(State.messages, "touch Y: "..select(2, love.touch.getPosition(touches[1])))
+            else
+                table.insert(State.messages, "no touch")
+            end
         end
 
         -- Отслеживание пера при движении
@@ -129,7 +160,6 @@ function M.executeActions(actions, env)
                 end
                 return true
             elseif a.name == "if" then
-                -- p должен быть булевым или числом (0=false)
                 local cond = p
                 if cond and cond ~= 0 then
                     if M.executeActions(a.children, env) then return true end
@@ -166,7 +196,7 @@ end
 function M.update(dt)
     if State.waitTimer > 0 then
         State.waitTimer = State.waitTimer - dt
-        if State.waitTimer <= 0 then State.waitTimer = 0
+        if State.waitTimer <= 0 then State.waitTimer = 0 end
     end
 end
 
