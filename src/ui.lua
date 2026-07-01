@@ -73,10 +73,15 @@ function M.drawButtons()
     love.graphics.print("Copy", love.graphics.getWidth()-145, btnY+5)
     love.graphics.rectangle("fill", love.graphics.getWidth()-78, btnY, 68, 25)
     love.graphics.print("Paste", love.graphics.getWidth()-73, btnY+5)
+    btnY = btnY + 35
+    -- Кнопка Variables
+    love.graphics.setColor(0.9,0.5,0.1)
+    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
+    love.graphics.print("Variables", love.graphics.getWidth()-145, btnY+8)
 end
 
 function M.drawMessages()
-    local msgY = State.workspaceStartY + #State.workspaceBlocks*(State.blockHeight+State.blockSpacing) + 20 - State.workspaceScrollY
+    local msgY = State.workspaceStartY + 20 - State.workspaceScrollY
     for _, msg in ipairs(State.messages) do
         if msgY > 0 and msgY < love.graphics.getHeight() then
             love.graphics.setColor(1,1,1)
@@ -122,7 +127,7 @@ function M.handleClick(x, y)
                         return true
                     end
                     if x >= ox+w+35 and x <= ox+w+60 then
-                        -- Открыть выбор файла (имитация для ПК, в реальности можно использовать love.filedropped)
+                        -- Открыть выбор файла (можно через love.filedropped)
                         return true
                     end
                     ox = ox + w + 65
@@ -150,9 +155,6 @@ function M.handleClick(x, y)
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
             local loaded = project.loadProject("project.cat")
             if loaded then
-                State.project = loaded
-                blocks.updateWorkspace()
-                runtime.compileScript()
                 table.insert(State.messages, "Project loaded")
             else
                 table.insert(State.messages, "Load failed")
@@ -168,24 +170,20 @@ function M.handleClick(x, y)
             blocks.pasteBlock()
             return true
         end
+        btnY = btnY + 35
+        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+            -- Показать список переменных (для простоты выводим в сообщения)
+            local msg = "Variables: "
+            for k,v in pairs(State.vars) do msg = msg .. k .. "=" .. tostring(v) .. " " end
+            table.insert(State.messages, msg)
+            return true
+        end
     end
     return false
 end
 
 function M.updateLongPress(dt)
-    if State.longPressBlockIdx and not State.longPressMoved then
-        if love.timer.getTime() - State.longPressStartTime > 0.5 then
-            table.remove(State.workspaceBlocks, State.longPressBlockIdx)
-            if State.editingBlockIdx == State.longPressBlockIdx then
-                State.editingBlockIdx = nil
-                State.editingText = ""
-                State.keyboardVisible = false
-            end
-            State.longPressBlockIdx = nil
-            blocks.calculateHeights()
-            runtime.compileScript()
-        end
-    end
+    -- Удаление блока при долгом нажатии (уже обработано в workspaceRelease)
 end
 
 return M
