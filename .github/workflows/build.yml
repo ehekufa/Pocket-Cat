@@ -8,7 +8,7 @@ jobs:
   # ---------- Android Release ----------
   build-android-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - uses: actions/checkout@v4
@@ -57,10 +57,10 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-v2
 
-      # ---- Увеличение памяти для Gradle и отключение лишних фич ----
+      # ---- Настройка Gradle для увеличения памяти и отключения лишних задач ----
       - name: Configure Gradle
         run: |
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m" >> love-android/gradle.properties
+          echo "org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=512m" >> love-android/gradle.properties
           echo "org.gradle.daemon=false" >> love-android/gradle.properties
           echo "org.gradle.parallel=false" >> love-android/gradle.properties
           echo "org.gradle.caching=true" >> love-android/gradle.properties
@@ -76,10 +76,13 @@ jobs:
           cp game.love love-android/app/src/embed/assets/game.love
           ls -la love-android/app/src/embed/assets/
 
-      - name: Force arm64 (and remove x86, armeabi)
+      - name: Force arm64 (remove other ABIs) and disable debug metadata
         run: |
+          # Удаляем старые abiFilters, добавляем только arm64-v8a
           sed -i '/abiFilters/d' love-android/app/build.gradle
           sed -i '/defaultConfig {/a\        ndk { abiFilters "arm64-v8a" }' love-android/app/build.gradle
+          # Отключаем генерацию native debug metadata для релиза
+          sed -i '/buildTypes {/a\            release {\n                debuggable false\n                jniDebuggable false\n                packagingOptions {\n                    doNotStrip "**/*.so"\n                }\n            }' love-android/app/build.gradle
 
       # ---------- Подпись релизной сборки ----------
       - name: Create keystore (if no secrets)
@@ -118,19 +121,17 @@ jobs:
                       signingConfig signingConfigs.release
                       minifyEnabled false
                       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                      debuggable false
-                      jniDebuggable false
                   }
               }
           }
           EOF
 
-      # ---- ИСПРАВЛЕНО: используем точное имя задачи (embedNoRecord) ----
+      # ---- Сборка только нужного варианта (embedNoRecordRelease) ----
       - name: Build Release APK
         working-directory: love-android
         run: ./gradlew assembleEmbedNoRecordRelease --no-daemon --parallel --console=plain --max-workers=2
 
-      # ---- Коллектор APK (гибкий поиск) ----
+      # ---- Поиск и копирование APK ----
       - name: Collect APK
         run: |
           APK_FILE=$(find love-android/app/build/outputs -name "*.apk" | head -n 1)
@@ -150,10 +151,10 @@ jobs:
           path: PocketCat_Release.apk
           compression-level: 0
 
-  # ---------- Windows Portable (без изменений) ----------
+  # ---------- Windows Portable (упрощён, без Wine) ----------
   build-windows-portable:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Package game.love
@@ -178,19 +179,6 @@ jobs:
           cp love-windows32/love-11.5-win32/* dist/PocketCat32/
           cat game.love >> dist/PocketCat32/love.exe
           mv dist/PocketCat32/love.exe dist/PocketCat32/PocketCat32.exe
-      - name: Install Wine and rcedit (for icon)
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-get update
-          sudo apt-get install -y wine wine32 wine64
-          wget -O rcedit-x64.exe https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-x64.exe
-      - name: Set icon (if exists)
-        run: |
-          if [ -f "icon.ico" ]; then
-            wine rcedit-x64.exe dist/PocketCat64/PocketCat.exe --set-icon icon.ico
-            wine rcedit-x64.exe dist/PocketCat32/PocketCat32.exe --set-icon icon.ico
-          fi
-        continue-on-error: true
       - name: Create ZIP archive
         run: |
           cd dist
