@@ -4,8 +4,8 @@ local State = {
     currentSceneIdx = 1,
     currentObjectIdx = 1,
 
-    paletteBlocks = {},  -- будет заполнено из constants
-    workspaceBlocks = {},
+    paletteBlocks = {},
+    workspaceBlocks = {},         -- список корневых блоков (каждый может иметь children)
 
     paletteWidth = 200,
     paletteScrollY = 0,
@@ -21,15 +21,17 @@ local State = {
 
     draggingBlock = nil,
     dragFromPalette = false,
+    dragSourceParent = nil,       -- родитель перетаскиваемого блока (если внутри контейнера)
+    dragSourceIndex = nil,
 
     longPressBlockIdx = nil,
     longPressStartTime = 0,
     longPressMoved = false,
 
-    editingBlockIdx = nil,
+    editingBlock = nil,           -- ссылка на редактируемый блок (вместо индекса)
     editingText = "",
 
-    -- Keyboard (for mobile)
+    -- Keyboard
     keyboardMode = "digits",
     keyboardVisible = false,
     keyboardHeight = 260,
@@ -80,7 +82,8 @@ local State = {
     penPoints = {},
     drawCommands = {},
     messages = {},
-    vars = {},
+    vars = {},                 -- переменные (имя → значение)
+    varList = {},              -- список имён переменных для отображения
 
     -- Objects
     showCube = false,
