@@ -14,7 +14,6 @@ function love.load()
     blocks.updateWorkspace()
     paint.init()
     runtime.compileScript()
-    -- ui.calculateHeights() уже вызывается в blocks.updateWorkspace
 end
 
 function love.draw()
@@ -39,7 +38,6 @@ end
 
 -- Обработка мыши / тач с блокировкой Paint при открытой клавиатуре
 function love.mousepressed(x, y, button)
-    -- Если клавиатура открыта, обрабатываем только её
     if state.keyboardVisible then
         keyboard.handleTouch(x, y)
         return
