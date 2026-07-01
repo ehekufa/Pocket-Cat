@@ -54,7 +54,7 @@ function M.drawTabs()
 end
 
 function M.drawButtons()
-    -- Кнопка запуска (зелёный круг с ">")
+    -- Кнопка запуска
     local rx = love.graphics.getWidth() - 50
     love.graphics.setColor(0,1,0)
     love.graphics.circle("fill", rx, 15, 22)
@@ -63,20 +63,15 @@ function M.drawButtons()
     State.runButton = {x = rx, y = 15, r = 22}
 
     local btnY = 50
-    -- Save .cat
+    -- Save .cat with name
     love.graphics.setColor(0.2,0.5,1.0)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
     love.graphics.print("Save .cat", love.graphics.getWidth()-145, btnY+8)
     btnY = btnY + 35
-    -- Load .cat
+    -- Load .cat from list
     love.graphics.setColor(0.2,0.5,1.0)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
     love.graphics.print("Load .cat", love.graphics.getWidth()-145, btnY+8)
-    btnY = btnY + 35
-    -- Export .cat (сохранить с уникальным именем в Documents)
-    love.graphics.setColor(0.8,0.6,0.2)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
-    love.graphics.print("Export .cat", love.graphics.getWidth()-145, btnY+8)
     btnY = btnY + 35
     -- Copy/Paste
     love.graphics.setColor(0.7,0.7,0.2)
@@ -103,7 +98,7 @@ function M.drawMessages()
 end
 
 function M.handleClick(x, y)
-    -- Верхние вкладки
+    -- Вкладки сцен и объектов (без изменений)
     if y <= 60 then
         if y >= 5 and y <= 30 then
             local sx = 70
@@ -139,8 +134,7 @@ function M.handleClick(x, y)
                         return true
                     end
                     if x >= ox+w+35 and x <= ox+w+60 then
-                        -- файловый диалог через love.filedropped
-                        table.insert(State.messages, "Перетащите файл в окно для импорта")
+                        -- Показываем список файлов (любое действие)
                         return true
                     end
                     ox = ox + w + 65
@@ -161,36 +155,57 @@ function M.handleClick(x, y)
             end
         end
 
+        -- Кнопки Save .cat и Load .cat
         local btnY = 50
-        -- Save .cat (стандартное сохранение в корень)
+        -- Save .cat
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            project.saveProject("project.cat")
-            table.insert(State.messages, "Project saved as project.cat")
-            return true
-        end
-        btnY = btnY + 35
-        -- Load .cat (загрузка из корня)
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            local loaded = project.loadProject("project.cat")
-            if loaded then
-                table.insert(State.messages, "Project loaded from project.cat")
-            else
-                table.insert(State.messages, "Load failed")
+            -- Открываем клавиатуру для ввода имени файла
+            State.editingBlock = nil
+            State.editingText = ""
+            State.keyboardVisible = true
+            State.keyboardMode = "digits"
+            State.saveFileName = true  -- флаг, что мы вводим имя для сохранения
+            -- Временно сохраняем колбэк: при нажатии Done сохраним
+            State.saveCallback = function(name)
+                if name and name ~= "" then
+                    project.saveProject(name)
+                else
+                    table.insert(State.messages, "Canceled")
+                end
+                State.saveFileName = false
+                State.saveCallback = nil
             end
             return true
         end
         btnY = btnY + 35
-        -- Export .cat (сохранить в Documents с уникальным именем)
+        -- Load .cat (показываем список)
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            local timestamp = os.date("%Y%m%d_%H%M%S")
-            local filename = "pocketcat_" .. timestamp .. ".cat"
-            -- Сохраняем в DocumentsDirectory
-            local path = system.pathForFile(filename, system.DocumentsDirectory)
-            if path then
-                project.saveProject(path)
-                table.insert(State.messages, "Exported to: " .. path)
-            else
-                table.insert(State.messages, "Export failed")
+            local files = project.getProjectFiles()
+            if #files == 0 then
+                table.insert(State.messages, "No .cat files found")
+                return true
+            end
+            -- Показываем список в сообщениях (временно)
+            local msg = "Files: "
+            for i, f in ipairs(files) do
+                msg = msg .. f .. (i < #files and ", " or "")
+            end
+            table.insert(State.messages, msg)
+            -- Здесь можно было бы реализовать выбор через клавиатуру, но для простоты предлагаем ввести имя
+            State.editingBlock = nil
+            State.editingText = ""
+            State.keyboardVisible = true
+            State.keyboardMode = "digits"
+            State.loadFileName = true
+            State.loadCallback = function(name)
+                if name and name ~= "" then
+                    local fullName = name:match("%.cat$") and name or name..".cat"
+                    project.loadProject(fullName)
+                else
+                    table.insert(State.messages, "Canceled")
+                end
+                State.loadFileName = false
+                State.loadCallback = nil
             end
             return true
         end
