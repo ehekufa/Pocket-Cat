@@ -1,210 +1,195 @@
--- src/keyboard.lua
+-- src/ui.lua
 local State = require("src.state")
-local utils = require("src.utils")
+local project = require("src.project")
 local blocks = require("src.blocks")
+local runtime = require("src.runtime")
+local utils = require("src.utils")
 
 local M = {}
 
-function M.updatePos()
-    local keys = (State.keyboardMode == "digits" and State.digitsKeys or
-                  State.keyboardMode == "ru" and State.ruKeys or
-                  State.enKeys)
-    local cols = 0
-    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
-    State.keyboardPosX = love.graphics.getWidth()/2 - (cols * (State.keyW + State.keySpacing) + State.keySpacing)/2
-    State.keyboardPosY = love.graphics.getHeight() - State.keyboardHeight
+-- Функция calculateHeights теперь определена
+function M.calculateHeights()
+    blocks.calculateHeights()
 end
 
-function M.drawKeyboard()
-    if not State.keyboardVisible then return end
-    M.updatePos()
-    local kx, ky = State.keyboardPosX, State.keyboardPosY
-    local keys = (State.keyboardMode == "digits" and State.digitsKeys or
-                  State.keyboardMode == "ru" and State.ruKeys or
-                  State.enKeys)
-    local rows, cols = #keys, 0
-    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
-    local kw = cols * (State.keyW + State.keySpacing) + State.keySpacing
-    local kh = rows * (State.keyH + State.keySpacing) + State.keySpacing + 80
-
-    love.graphics.setColor(0.1,0.1,0.1,0.95)
-    love.graphics.rectangle("fill", kx, ky, kw, kh, 10)
-
-    -- Поле ввода
-    local inputY = ky + 10
-    local inputW = kw - 20
-    love.graphics.setColor(0.2,0.2,0.2)
-    love.graphics.rectangle("fill", kx+10, inputY, inputW, 30, 5)
+function M.drawTabs()
+    love.graphics.setColor(0.1,0.1,0.1)
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), 70)
     love.graphics.setColor(1,1,1)
-    love.graphics.rectangle("line", kx+10, inputY, inputW, 30, 5)
-    love.graphics.setColor(1,1,1)
-    local displayText = State.editingText or ""
-    if #displayText > 20 then displayText = displayText:sub(1,20).."…" end
-    love.graphics.print(utils.safeUTF8(displayText), kx+15, inputY+8)
-
-    -- Клавиши
-    for i, row in ipairs(keys) do
-        for j, char in ipairs(row) do
-            local bx = kx + State.keySpacing + (j-1)*(State.keyW + State.keySpacing)
-            local by = ky + State.keySpacing + (i-1)*(State.keyH + State.keySpacing) + 50
-            love.graphics.setColor(0.3,0.3,0.3)
-            love.graphics.rectangle("fill", bx, by, State.keyW, State.keyH, 6)
-            love.graphics.setColor(1,1,1)
-            love.graphics.rectangle("line", bx, by, State.keyW, State.keyH, 6)
-            love.graphics.printf(char, bx, by+State.keyH/2-8, State.keyW, "center")
-        end
-    end
-
-    -- Кнопки режимов
-    local swY = ky + rows*(State.keyH + State.keySpacing) + State.keySpacing + 50
-    local modes = {{"123","digits"},{"АБВ","ru"},{"ABC","en"}}
-    for i, m in ipairs(modes) do
-        local bx = kx + State.keySpacing + (i-1)*(55 + State.keySpacing)
-        love.graphics.setColor(0.3,0.3,0.3)
-        love.graphics.rectangle("fill", bx, swY, 55, 30, 6)
+    love.graphics.print("Scenes:", 5, 5)
+    local sx = 70
+    for i, sc in ipairs(State.project.scenes) do
+        local w = love.graphics.getFont():getWidth(sc.name) + 15
+        love.graphics.setColor(State.currentSceneIdx == i and {0.4,0.7,1} or {0.3,0.3,0.3})
+        love.graphics.rectangle("fill", sx, 5, w, 25)
         love.graphics.setColor(1,1,1)
-        love.graphics.rectangle("line", bx, swY, 55, 30, 6)
-        love.graphics.printf(m[1], bx, swY+8, 55, "center")
+        love.graphics.print(sc.name, sx+5, 10)
+        sx = sx + w + 5
     end
-
-    -- Кнопки "Paste" и "Done"
-    local doneX = kx + kw - 70
-    local pasteX = doneX - 75
-    love.graphics.setColor(0.4,0.5,1.0)
-    love.graphics.rectangle("fill", pasteX, swY, 65, 30, 6)
+    love.graphics.setColor(0.3,0.7,0.3)
+    love.graphics.rectangle("fill", sx, 5, 25, 25)
+    love.graphics.print("+", sx+5, 8)
     love.graphics.setColor(1,1,1)
-    love.graphics.rectangle("line", pasteX, swY, 65, 30, 6)
-    love.graphics.printf("Paste", pasteX, swY+8, 65, "center")
-
-    love.graphics.setColor(0.2,0.6,0.2)
-    love.graphics.rectangle("fill", doneX, swY, 60, 30, 6)
-    love.graphics.setColor(1,1,1)
-    love.graphics.rectangle("line", doneX, swY, 60, 30, 6)
-    love.graphics.printf("Done", doneX, swY+8, 60, "center")
-
-    -- Кнопка закрытия (красный крестик)
-    local closeX = kx + kw + 5
-    local closeY = ky - 10
-    love.graphics.setColor(1,0,0)
-    love.graphics.rectangle("fill", closeX, closeY, 30, 30, 5)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("X", closeX+8, closeY+5)
+    love.graphics.print("Objects:", 5, 35)
+    local ox = 70
+    local scene = project.getCurrentScene()
+    if scene then
+        for i, obj in ipairs(scene.objects) do
+            local w = love.graphics.getFont():getWidth(obj.name) + 15
+            love.graphics.setColor(State.currentObjectIdx == i and {0.9,0.9,0.2} or {0.3,0.3,0.3})
+            love.graphics.rectangle("fill", ox, 35, w, 25)
+            love.graphics.setColor(1,1,1)
+            love.graphics.print(obj.name, ox+5, 40)
+            love.graphics.setColor(0.8,0.6,0.2)
+            love.graphics.rectangle("fill", ox+w+5, 35, 25, 25)
+            love.graphics.print("P", ox+w+7, 38)
+            love.graphics.setColor(0.4,0.5,1.0)
+            love.graphics.rectangle("fill", ox+w+35, 35, 25, 25)
+            love.graphics.print("F", ox+w+37, 38)
+            ox = ox + w + 65
+        end
+        love.graphics.setColor(0.3,0.7,0.3)
+        love.graphics.rectangle("fill", ox, 35, 25, 25)
+        love.graphics.print("+", ox+5, 38)
+    end
 end
 
-function M.handleTouch(x, y)
-    if not State.keyboardVisible then return false end
-    local kx, ky = State.keyboardPosX, State.keyboardPosY
-    local keys = (State.keyboardMode == "digits" and State.digitsKeys or
-                  State.keyboardMode == "ru" and State.ruKeys or
-                  State.enKeys)
-    local cols = 0
-    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
-    local kw = cols * (State.keyW + State.keySpacing) + State.keySpacing
-    local rows = #keys
+function M.drawButtons()
+    local rx = love.graphics.getWidth() - 50
+    love.graphics.setColor(0,1,0)
+    love.graphics.circle("fill", rx, 15, 22)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print(">", rx-8, 5, 0, 1.6)
+    local btnY = 50
+    love.graphics.setColor(0.2,0.5,1.0)
+    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
+    love.graphics.print("Save .cat", love.graphics.getWidth()-145, btnY+8)
+    btnY = btnY + 35
+    love.graphics.setColor(0.2,0.5,1.0)
+    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
+    love.graphics.print("Load .cat", love.graphics.getWidth()-145, btnY+8)
+    btnY = btnY + 35
+    love.graphics.setColor(0.7,0.7,0.2)
+    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 68, 25)
+    love.graphics.print("Copy", love.graphics.getWidth()-145, btnY+5)
+    love.graphics.rectangle("fill", love.graphics.getWidth()-78, btnY, 68, 25)
+    love.graphics.print("Paste", love.graphics.getWidth()-73, btnY+5)
+    btnY = btnY + 35
+    love.graphics.setColor(0.9,0.5,0.1)
+    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
+    love.graphics.print("Variables", love.graphics.getWidth()-145, btnY+8)
+end
 
-    -- Кнопка закрытия
-    local closeX = kx + kw + 5
-    local closeY = ky - 10
-    if x >= closeX and x <= closeX+30 and y >= closeY and y <= closeY+30 then
-        State.keyboardVisible = false
-        State.editingBlock = nil
-        State.editingText = ""
-        return true
+function M.drawMessages()
+    local msgY = State.workspaceStartY + 20 - State.workspaceScrollY
+    for _, msg in ipairs(State.messages) do
+        if msgY > 0 and msgY < love.graphics.getHeight() then
+            love.graphics.setColor(1,1,1)
+            love.graphics.print(utils.safeUTF8(msg), State.workspaceStartX, msgY)
+        end
+        msgY = msgY + State.fontSize + 4
     end
+end
 
-    -- Клавиши
-    for i, row in ipairs(keys) do
-        for j, char in ipairs(row) do
-            local bx = kx + State.keySpacing + (j-1)*(State.keyW + State.keySpacing)
-            local by = ky + State.keySpacing + (i-1)*(State.keyH + State.keySpacing) + 50
-            if x >= bx and x <= bx+State.keyW and y >= by and y <= by+State.keyH then
-                if char == "⌫" then
-                    State.editingText = State.editingText:sub(1, -2)
-                else
-                    State.editingText = State.editingText .. char
+function M.handleClick(x, y)
+    if y <= 60 then
+        if y >= 5 and y <= 30 then
+            local sx = 70
+            for i, sc in ipairs(State.project.scenes) do
+                local w = love.graphics.getFont():getWidth(sc.name) + 15
+                if x >= sx and x <= sx+w then
+                    State.currentSceneIdx = i
+                    State.currentObjectIdx = 1
+                    blocks.updateWorkspace()
+                    runtime.compileScript()
+                    return true
                 end
+                sx = sx + w + 5
+            end
+            if x >= sx and x <= sx+25 then
+                project.addScene()
                 return true
             end
+        elseif y >= 35 and y <= 60 then
+            local ox = 70
+            local scene = project.getCurrentScene()
+            if scene then
+                for i, obj in ipairs(scene.objects) do
+                    local w = love.graphics.getFont():getWidth(obj.name) + 15
+                    if x >= ox and x <= ox+w then
+                        State.currentObjectIdx = i
+                        blocks.updateWorkspace()
+                        runtime.compileScript()
+                        return true
+                    end
+                    if x >= ox+w+5 and x <= ox+w+30 then
+                        State.paintMode = true
+                        return true
+                    end
+                    if x >= ox+w+35 and x <= ox+w+60 then
+                        -- можно открыть диалог выбора файла
+                        return true
+                    end
+                    ox = ox + w + 65
+                end
+                if x >= ox and x <= ox+25 then
+                    project.addObject()
+                    return true
+                end
+            end
         end
-    end
-
-    -- Кнопки режимов
-    local swY = ky + rows*(State.keyH + State.keySpacing) + State.keySpacing + 50
-    local modes = {{"123","digits"},{"АБВ","ru"},{"ABC","en"}}
-    for i, m in ipairs(modes) do
-        local bx = kx + State.keySpacing + (i-1)*(55 + State.keySpacing)
-        if x >= bx and x <= bx+55 and y >= swY and y <= swY+30 then
-            State.keyboardMode = m[2]
+    else
+        local rx = love.graphics.getWidth() - 50
+        if math.sqrt((x-rx)^2 + (y-15)^2) <= 22 then
+            runtime.runProject()
+            return true
+        end
+        local btnY = 50
+        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+            project.saveProject("project.cat")
+            table.insert(State.messages, "Project saved")
+            return true
+        end
+        btnY = btnY + 35
+        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+            local loaded = project.loadProject("project.cat")
+            if loaded then
+                table.insert(State.messages, "Project loaded")
+            else
+                table.insert(State.messages, "Load failed")
+            end
+            return true
+        end
+        btnY = btnY + 35
+        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-82 and y >= btnY and y <= btnY+25 then
+            blocks.copyBlock()
+            return true
+        end
+        if x >= love.graphics.getWidth()-78 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+25 then
+            blocks.pasteBlock()
+            return true
+        end
+        btnY = btnY + 35
+        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+            local msg = "Variables: "
+            for k,v in pairs(State.vars) do msg = msg .. k .. "=" .. tostring(v) .. " " end
+            table.insert(State.messages, msg)
             return true
         end
     end
-
-    -- Кнопка Paste
-    local doneX = kx + kw - 70
-    local pasteX = doneX - 75
-    if x >= pasteX and x <= pasteX+65 and y >= swY and y <= swY+30 then
-        local clip = love.system.getClipboardText()
-        if clip then State.editingText = State.editingText .. utils.safeUTF8(clip) end
-        return true
-    end
-
-    -- Кнопка Done
-    if x >= doneX and x <= doneX+60 and y >= swY and y <= swY+30 then
-        if State.editingBlock then
-            State.editingBlock.param = State.editingText
-            require("src.runtime").compileScript()
-            table.insert(State.messages, "Parameter updated")
-        end
-        State.editingBlock = nil
-        State.editingText = ""
-        State.keyboardVisible = false
-        return true
-    end
-
     return false
 end
 
-function M.textInput(t)
-    if State.keyboardVisible then
-        State.editingText = State.editingText .. t
-    end
-end
-
-function M.keyPressed(key)
-    if State.keyboardVisible then
-        if key == "return" or key == "kpenter" then
-            if State.editingBlock then
-                State.editingBlock.param = State.editingText
-                require("src.runtime").compileScript()
-            end
+-- Обработка долгого нажатия (удаление блока)
+function M.updateLongPress(dt)
+    if State.longPressBlockIdx and not State.longPressMoved then
+        if love.timer.getTime() - State.longPressStartTime > 0.5 then
+            blocks.deleteBlockByIndex(State.longPressBlockIdx)
+            State.longPressBlockIdx = nil
             State.editingBlock = nil
             State.editingText = ""
             State.keyboardVisible = false
-        elseif key == "escape" then
-            State.editingBlock = nil
-            State.editingText = ""
-            State.keyboardVisible = false
-        elseif key == "backspace" then
-            State.editingText = State.editingText:sub(1, -2)
-        end
-    else
-        if key == "f5" then
-            require("src.runtime").runProject()
-        elseif key == "f2" then
-            require("src.project").saveProject("project.cat")
-        elseif key == "delete" then
-            if State.editingBlock then
-                -- Удаление блока через клавишу Delete
-                for i, b in ipairs(State.workspaceBlocks) do
-                    if b == State.editingBlock then
-                        blocks.deleteBlockByIndex(i)
-                        break
-                    end
-                end
-                State.editingBlock = nil
-                State.editingText = ""
-                State.keyboardVisible = false
-            end
+            table.insert(State.messages, "Block deleted")
         end
     end
 end
