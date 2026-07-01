@@ -80,18 +80,36 @@ function M.addObject()
 end
 
 function M.handleFileDrop(file)
-    local fname = file.name or file
-    local ext = fname:match("%.([^.]+)$"):lower()
+    -- Получаем имя файла (в LÖVE 11.4+ используется file:getFilename(), в 11.3 - file.name)
+    local fname
+    if type(file) == "string" then
+        fname = file
+    elseif file.getFilename then
+        fname = file:getFilename()
+    else
+        fname = file.name or tostring(file)
+    end
+    if not fname then return end
+
+    local ext = fname:match("%.([^.]+)$")
+    if not ext then return end
+    ext = ext:lower()
     local destFolder = "sprites/"
     if ext == "ogg" or ext == "mp3" or ext == "wav" then destFolder = "sounds/" end
     love.filesystem.createDirectory(destFolder)
     local destName = destFolder .. love.filesystem.getBasename(fname) .. "." .. ext
+    -- Копируем файл
     local data = love.filesystem.read(fname)
-    if data then love.filesystem.write(destName, data) end
+    if data then
+        love.filesystem.write(destName, data)
+    end
     local obj = M.getCurrentObject()
     if obj then
-        if destFolder == "sprites/" then obj.image = destName
-        elseif destFolder == "sounds/" then obj.sound = destName end
+        if destFolder == "sprites/" then
+            obj.image = destName
+        elseif destFolder == "sounds/" then
+            obj.sound = destName
+        end
     end
 end
 
