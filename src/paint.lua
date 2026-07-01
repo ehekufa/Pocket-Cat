@@ -12,6 +12,7 @@ function M.init()
     love.graphics.setCanvas()
     State.paintCanvas:setFilter("linear", "linear")
     M.recalcScale()
+    State.closeButton = nil -- инициализируем
 end
 
 function M.recalcScale()
@@ -42,6 +43,16 @@ function M.drawPaint()
     love.graphics.setColor(1,1,1)
     love.graphics.rectangle("line", cx, cy, pw, ph)
     love.graphics.draw(State.paintCanvas, cx, cy, 0, State.paintScale, State.paintScale)
+
+    -- === КРЕСТИК ДЛЯ ЗАКРЫТИЯ (в правом верхнем углу) ===
+    local closeX = cx + pw - 30
+    local closeY = cy + 10
+    love.graphics.setColor(1, 0, 0)
+    love.graphics.rectangle("fill", closeX, closeY, 24, 24, 5)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("X", closeX + 7, closeY + 4)
+    State.closeButton = {x = closeX, y = closeY, w = 24, h = 24}
+
     local px = cx + pw + 30
     love.graphics.setColor(0.2,0.2,0.2)
     love.graphics.rectangle("fill", px-10, 50, 140, 500, 8)
@@ -130,12 +141,13 @@ function M.drawPaint()
     love.graphics.rectangle("fill", vm-1, vY-1, 3, 12)
     love.graphics.setColor(1,1,1)
     love.graphics.rectangle("line", vm-1, vY-1, 3, 12)
-    love.graphics.setColor(0.3,0.8,0.3)
+
+    -- === КНОПКА SAVE (сохраняет, но НЕ закрывает) ===
+    love.graphics.setColor(0.3, 0.8, 0.3)
     love.graphics.rectangle("fill", px, vY+20, 120, 30, 5)
     love.graphics.print("Save", px+40, vY+28)
-    love.graphics.setColor(0.8,0.3,0.3)
-    love.graphics.rectangle("fill", px, vY+60, 120, 30, 5)
-    love.graphics.print("Close", px+40, vY+68)
+
+    -- Закрывающую кнопку мы убрали, теперь только крестик.
 end
 
 function M.handleTouch(x, y, isDown)
@@ -145,8 +157,24 @@ function M.handleTouch(x, y, isDown)
     local ph = State.paintHeight * State.paintScale
     local px = cx + pw + 30
 
-    -- Save button
-    if y > 550 and y < 590 and x > px and x < px+120 then
+    -- === КРЕСТИК ЗАКРЫТИЯ ===
+    if State.closeButton then
+        local cb = State.closeButton
+        if x >= cb.x and x <= cb.x + cb.w and y >= cb.y and y <= cb.y + cb.h then
+            love.graphics.setCanvas()
+            State.paintMode = false
+            State.paintCustomStep = 0
+            State.paintCustomInputText = ""
+            State.closeButton = nil
+            return true
+        end
+    end
+
+    -- === КНОПКА SAVE (сохраняет, не закрывает) ===
+    local vX, vY = px, 50 + hsvSize + 10 + 10  -- точно под палитрой
+    -- координаты Save: px, vY+20 (как нарисовано)
+    local saveX, saveY = px, vY + 20
+    if x >= saveX and x <= saveX + 120 and y >= saveY and y <= saveY + 30 then
         love.graphics.setCanvas()
         local obj = project.getCurrentObject()
         if obj then
@@ -154,21 +182,13 @@ function M.handleTouch(x, y, isDown)
             local filename = "obj_" .. State.currentSceneIdx .. "_" .. State.currentObjectIdx .. ".png"
             imgData:encode("png", filename)
             obj.image = filename
+            table.insert(State.messages, "Sprite saved")
         end
-        State.paintMode = false
-        State.paintCustomStep = 0
-        State.paintCustomInputText = ""
-        return true
-    end
-    -- Close button
-    if y > 590 and y < 630 and x > px and x < px+120 then
         love.graphics.setCanvas()
-        State.paintMode = false
-        State.paintCustomStep = 0
-        State.paintCustomInputText = ""
         return true
     end
 
+    -- === ОСТАЛЬНЫЕ ЭЛЕМЕНТЫ (инструменты, размеры, HSV, рисование) ===
     -- Tools
     for i, tool in ipairs(State.paintTools) do
         local ty = 90 + (i-1)*32
@@ -237,8 +257,8 @@ function M.handleTouch(x, y, isDown)
         return true
     end
 
-    -- Drawing on canvas
-    if x >= cx and x <= cx+pw and y >= cy and y <= cy+ph and isDown then
+    -- Drawing on canvas (только если нажата кнопка мыши)
+    if isDown and x >= cx and x <= cx+pw and y >= cy and y <= cy+ph then
         local pxc = math.floor((x - cx) / State.paintScale) + 1
         local pyc = math.floor((y - cy) / State.paintScale) + 1
         if pxc >= 1 and pxc <= State.paintWidth and pyc >= 1 and pyc <= State.paintHeight then
@@ -303,6 +323,7 @@ function M.handleTouch(x, y, isDown)
             return true
         end
     end
+
     return false
 end
 
