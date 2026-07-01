@@ -5,30 +5,7 @@ local constants = require("src.constants")
 
 local M = {}
 
--- Отрисовка одного блока с подсветкой редактирования
-function M.drawBlock(block, x, y, isDragging, highlight)
-    local color = State.catColors[block.category] or {0.4,0.4,0.8}
-    love.graphics.setColor(0,0,0,0.3)
-    love.graphics.rectangle("fill", x+2, y+2, State.blockWidth, State.blockHeight, 10)
-    love.graphics.setColor(color)
-    love.graphics.rectangle("fill", x, y, State.blockWidth, State.blockHeight, 10)
-    love.graphics.setColor(0,0,0)
-    love.graphics.rectangle("line", x, y, State.blockWidth, State.blockHeight, 10)
-    love.graphics.setColor(1,1,1)
-    -- Отображаем метку и параметр, если есть
-    local label = block.label or block.name
-    local paramText = ""
-    if block.param ~= nil and block.param ~= "" then
-        paramText = " (" .. tostring(block.param) .. ")"
-    end
-    love.graphics.print(label .. paramText, x+14, y+10)
-    if highlight then
-        love.graphics.setColor(1,1,0)
-        love.graphics.rectangle("line", x-1, y-1, State.blockWidth+2, State.blockHeight+2, 12)
-    end
-end
-
--- Отрисовка дерева блоков
+-- Рекурсивная отрисовка дерева блоков
 function M.drawBlockTree(blocks, startX, startY, indent, scrollY)
     local y = startY - scrollY
     for _, b in ipairs(blocks) do
@@ -43,6 +20,26 @@ function M.drawBlockTree(blocks, startX, startY, indent, scrollY)
         end
     end
     return y
+end
+
+function M.drawBlock(block, x, y, isDragging, highlight)
+    local color = State.catColors[block.category] or {0.4,0.4,0.8}
+    love.graphics.setColor(0,0,0,0.3)
+    love.graphics.rectangle("fill", x+2, y+2, State.blockWidth, State.blockHeight, 10)
+    love.graphics.setColor(color)
+    love.graphics.rectangle("fill", x, y, State.blockWidth, State.blockHeight, 10)
+    love.graphics.setColor(color)
+    love.graphics.circle("fill", x + State.blockWidth/2, y, 8)
+    love.graphics.setColor(State.bgColor)
+    love.graphics.circle("fill", x + State.blockWidth/2, y + State.blockHeight, 8)
+    love.graphics.setColor(0,0,0)
+    love.graphics.rectangle("line", x, y, State.blockWidth, State.blockHeight, 10)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print(block.label or block.name, x+14, y+10)
+    if highlight then
+        love.graphics.setColor(1,1,0)
+        love.graphics.rectangle("line", x-1, y-1, State.blockWidth+2, State.blockHeight+2, 12)
+    end
 end
 
 function M.drawPalette()
@@ -112,7 +109,7 @@ function M.updateScrolling(dt)
     State.workspaceScrollY = math.max(0, math.min(State.workspaceScrollY, maxWs))
 end
 
--- Клик по палитре
+-- Клик по палитре (добавление блока)
 function M.paletteClick(x, y)
     local yPal = 10 - State.paletteScrollY
     local lastCat = nil
@@ -149,19 +146,26 @@ function M.paletteRelease()
     end
 end
 
--- Клик по рабочей области (начало редактирования или перетаскивания)
+-- Клик по рабочей области (запоминаем блок для долгого нажатия)
 function M.workspaceClick(x, y)
-    -- Ищем блок под курсором (просто по корневым, без учёта вложенности – упрощённо)
+    local idx = nil
     local currentY = State.workspaceStartY - State.workspaceScrollY
+    -- Ищем блок в корневом списке (без учёта вложенности для простоты)
     for i, b in ipairs(State.workspaceBlocks) do
         local bx = State.workspaceStartX
         if x >= bx and x <= bx+State.blockWidth and y >= currentY and y <= currentY+State.blockHeight then
-            State.longPressBlockIdx = i
-            State.longPressStartTime = love.timer.getTime()
-            State.longPressMoved = false
-            return
+            idx = i
+            break
         end
         currentY = currentY + State.blockHeight + State.blockSpacing
+        -- Пропускаем вложенные (упрощённо)
+    end
+    if idx then
+        State.longPressBlockIdx = idx
+        State.longPressStartTime = love.timer.getTime()
+        State.longPressMoved = false
+        State.dragSourceParent = nil
+        State.dragSourceIndex = nil
     end
 end
 
@@ -169,33 +173,39 @@ function M.workspaceRelease()
     if State.longPressBlockIdx and not State.longPressMoved then
         local elapsed = love.timer.getTime() - State.longPressStartTime
         if elapsed < 0.5 then
-            -- Короткий клик → редактирование параметра
+            -- Короткое нажатие → открываем редактирование параметра
             local block = State.workspaceBlocks[State.longPressBlockIdx]
-            if block then
-                State.editingBlock = block
-                State.editingText = tostring(block.param or "")
-                State.keyboardVisible = true
-                State.keyboardMode = "digits"
-            end
+            State.editingBlock = block
+            State.editingText = tostring(block.param or "")
+            State.keyboardVisible = true
+            State.keyboardMode = "digits"  -- или "en", по желанию
         end
         State.longPressBlockIdx = nil
     end
-    -- Если перетаскивали, но у нас упрощённая версия – ничего не делаем
+    -- Перетаскивание (если было)
+    if State.draggingBlock then
+        table.insert(State.workspaceBlocks, State.draggingBlock)
+        State.draggingBlock = nil
+        M.calculateHeights()
+        require("src.runtime").compileScript()
+    end
 end
 
 function M.handleTouchMove(x, y, dx, dy)
-    if State.paletteTapBlock and (math.abs(dx) > 3 or math.abs(dy) > 3) then
-        State.paletteMoved = true
-        -- Начало перетаскивания из палитры
-        State.draggingBlock = {
-            type = State.paletteTapBlock.type,
-            name = State.paletteTapBlock.name,
-            label = State.paletteTapBlock.label,
-            param = State.paletteTapBlock.param,
-            category = State.paletteTapBlock.category,
-            children = (State.paletteTapBlock.type == "control") and {} or nil,
-        }
-        State.dragFromPalette = true
+    if State.paletteTapBlock then
+        if math.abs(dx) > 3 or math.abs(dy) > 3 then
+            State.paletteMoved = true
+            State.draggingBlock = {
+                type = State.paletteTapBlock.type,
+                name = State.paletteTapBlock.name,
+                label = State.paletteTapBlock.label,
+                param = State.paletteTapBlock.param,
+                category = State.paletteTapBlock.category,
+                children = (State.paletteTapBlock.type == "control") and {} or nil,
+                elseChildren = (State.paletteTapBlock.name == "ifElse") and {} or nil
+            }
+            State.dragFromPalette = true
+        end
     end
     if State.longPressBlockIdx and not State.longPressMoved then
         if math.abs(dx) > 5 or math.abs(dy) > 5 then
@@ -244,6 +254,20 @@ function M.pasteBlock()
     else
         table.insert(State.messages, "Clipboard is empty")
     end
+end
+
+-- Удаление блока (вызывается из ui.updateLongPress)
+function M.deleteBlockByIndex(idx)
+    if idx and idx >= 1 and idx <= #State.workspaceBlocks then
+        table.remove(State.workspaceBlocks, idx)
+        M.calculateHeights()
+        require("src.runtime").compileScript()
+        State.editingBlock = nil
+        State.editingText = ""
+        State.keyboardVisible = false
+        return true
+    end
+    return false
 end
 
 return M
