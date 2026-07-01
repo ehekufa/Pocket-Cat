@@ -5,7 +5,7 @@ local project = require("src.project")
 local M = {}
 
 function M.drawSceneObjects()
-    -- Draw pen trails
+    -- Рисуем следы пера
     if #State.penPoints > 1 then
         love.graphics.setLineWidth(State.penSize or 2)
         for i = 2, #State.penPoints do
@@ -16,53 +16,58 @@ function M.drawSceneObjects()
         end
     end
 
-    -- Show image (sprite)
+    -- Показываем спрайт (изображение)
     if State.showImage then
         local obj = project.getCurrentObject()
         if obj and obj.image then
-            -- Если изображение ещё не загружено или изменилось, загружаем
+            -- Пытаемся загрузить изображение, если ещё не загружено
             if not obj.loadedImage then
-                local imgData = love.filesystem.read(obj.image)
-                if imgData then
-                    obj.loadedImage = love.graphics.newImage(imgData)
-                else
-                    -- Возможно, файл не найден, пробуем как файл в физической файловой системе (для отладки)
-                    -- Но обычно всё должно быть внутри .love
-                    -- Можно попробовать создать ImageData из файла через love.image.newImageData
-                    local imgData2 = love.image.newImageData(obj.image)
-                    if imgData2 then
-                        obj.loadedImage = love.graphics.newImage(imgData2)
+                -- Проверяем, существует ли файл
+                if love.filesystem.getInfo(obj.image) then
+                    -- Загружаем изображение напрямую по пути (строке)
+                    local success, img = pcall(love.graphics.newImage, obj.image)
+                    if success and img then
+                        obj.loadedImage = img
+                        print("Image loaded: " .. obj.image)
+                    else
+                        print("Failed to load image: " .. obj.image)
+                        obj.loadedImage = false -- чтобы не пытаться снова
                     end
+                else
+                    print("Image file not found: " .. obj.image)
+                    obj.loadedImage = false
                 end
             end
-            if obj.loadedImage then
-                love.graphics.setColor(1,1,1)
-                local w, h = obj.loadedImage:getDimensions()
-                local scale = State.objectSize / 32  -- масштабируем относительно базового размера 32
+
+            -- Если изображение загружено успешно, рисуем его
+            if obj.loadedImage and obj.loadedImage ~= false then
+                love.graphics.setColor(1, 1, 1)
                 love.graphics.draw(obj.loadedImage, State.cubeX, State.cubeY,
-                    math.rad(State.objectAngle), scale, scale, w/2, h/2)
+                    math.rad(State.objectAngle),
+                    State.objectSize / 32, State.objectSize / 32,
+                    16, 16) -- центрируем (предполагаем размер 32x32)
             end
         end
     end
 
-    -- Show cube
+    -- Показываем куб
     if State.showCube then
         love.graphics.push()
         love.graphics.translate(State.cubeX, State.cubeY)
         love.graphics.rotate(math.rad(State.objectAngle))
-        local s = State.objectSize/30
+        local s = State.objectSize / 30
         love.graphics.scale(s, s)
         love.graphics.setColor(State.objectColor)
         love.graphics.setLineWidth(2)
         for _, edge in ipairs(State.cubeEdges) do
             local p1 = State.cubeVertices[edge[1]]
             local p2 = State.cubeVertices[edge[2]]
-            love.graphics.line(p1[1]*10, p1[2]*10, p2[1]*10, p2[2]*10)
+            love.graphics.line(p1[1] * 10, p1[2] * 10, p2[1] * 10, p2[2] * 10)
         end
         love.graphics.pop()
     end
 
-    -- Show sphere
+    -- Показываем сферу
     if State.showSphere then
         love.graphics.setColor(State.objectColor)
         love.graphics.setLineWidth(2)
