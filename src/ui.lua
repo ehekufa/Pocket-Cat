@@ -60,27 +60,57 @@ function M.drawButtons()
     love.graphics.circle("fill", rx, 15, 22)
     love.graphics.setColor(1,1,1)
     love.graphics.print(">", rx-8, 5, 0, 1.6)
-    -- Запоминаем координаты для обработки клика
     State.runButton = {x = rx, y = 15, r = 22}
 
+    local btnX = love.graphics.getWidth() - 150
     local btnY = 50
+    local btnW = 140
+    local btnH = 25
+
+    -- Save .cat (в папку проекта)
     love.graphics.setColor(0.2,0.5,1.0)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
-    love.graphics.print("Save .cat", love.graphics.getWidth()-145, btnY+8)
-    btnY = btnY + 35
+    love.graphics.rectangle("fill", btnX, btnY, btnW, btnH)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Save .cat", btnX+5, btnY+6)
+    btnY = btnY + btnH + 5
+
+    -- Load .cat (из папки проекта)
     love.graphics.setColor(0.2,0.5,1.0)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
-    love.graphics.print("Load .cat", love.graphics.getWidth()-145, btnY+8)
-    btnY = btnY + 35
+    love.graphics.rectangle("fill", btnX, btnY, btnW, btnH)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Load .cat", btnX+5, btnY+6)
+    btnY = btnY + btnH + 5
+
+    -- Export .cat (в Documents/Downloads)
+    love.graphics.setColor(0.2,0.8,0.2)
+    love.graphics.rectangle("fill", btnX, btnY, btnW, btnH)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Export .cat", btnX+5, btnY+6)
+    btnY = btnY + btnH + 5
+
+    -- Import .cat (из Documents)
+    love.graphics.setColor(0.2,0.8,0.2)
+    love.graphics.rectangle("fill", btnX, btnY, btnW, btnH)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Import .cat", btnX+5, btnY+6)
+    btnY = btnY + btnH + 5
+
+    -- Copy
     love.graphics.setColor(0.7,0.7,0.2)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 68, 25)
-    love.graphics.print("Copy", love.graphics.getWidth()-145, btnY+5)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-78, btnY, 68, 25)
-    love.graphics.print("Paste", love.graphics.getWidth()-73, btnY+5)
-    btnY = btnY + 35
+    love.graphics.rectangle("fill", btnX, btnY, 68, btnH)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Copy", btnX+5, btnY+6)
+    love.graphics.setColor(0.7,0.7,0.2)
+    love.graphics.rectangle("fill", btnX+75, btnY, 65, btnH)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Paste", btnX+80, btnY+6)
+    btnY = btnY + btnH + 5
+
+    -- Variables
     love.graphics.setColor(0.9,0.5,0.1)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
-    love.graphics.print("Variables", love.graphics.getWidth()-145, btnY+8)
+    love.graphics.rectangle("fill", btnX, btnY, btnW, btnH)
+    love.graphics.setColor(1,1,1)
+    love.graphics.print("Variables", btnX+5, btnY+6)
 end
 
 function M.drawMessages()
@@ -95,7 +125,6 @@ function M.drawMessages()
 end
 
 function M.handleClick(x, y)
-    -- Верхние вкладки (сцены и объекты)
     if y <= 60 then
         if y >= 5 and y <= 30 then
             local sx = 70
@@ -131,7 +160,7 @@ function M.handleClick(x, y)
                         return true
                     end
                     if x >= ox+w+35 and x <= ox+w+60 then
-                        -- Открыть выбор файла (через love.filedropped)
+                        -- файловый диалог (пока пропускаем)
                         return true
                     end
                     ox = ox + w + 65
@@ -143,7 +172,7 @@ function M.handleClick(x, y)
             end
         end
     else
-        -- Кнопка запуска (зелёный круг)
+        -- Кнопка запуска
         if State.runButton then
             local bx, by, br = State.runButton.x, State.runButton.y, State.runButton.r
             if (x - bx)^2 + (y - by)^2 <= br^2 then
@@ -151,34 +180,69 @@ function M.handleClick(x, y)
                 return true
             end
         end
-        -- Остальные кнопки (Save, Load, Copy, Paste, Variables)
+
+        local btnX = love.graphics.getWidth() - 150
         local btnY = 50
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+        local btnW = 140
+        local btnH = 25
+
+        -- Save .cat (в папку проекта)
+        if x >= btnX and x <= btnX+btnW and y >= btnY and y <= btnY+btnH then
             project.saveProject("project.cat")
-            table.insert(State.messages, "Project saved")
+            table.insert(State.messages, "Project saved to project.cat")
             return true
         end
-        btnY = btnY + 35
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+        btnY = btnY + btnH + 5
+
+        -- Load .cat (из папки проекта)
+        if x >= btnX and x <= btnX+btnW and y >= btnY and y <= btnY+btnH then
             local loaded = project.loadProject("project.cat")
             if loaded then
-                table.insert(State.messages, "Project loaded")
+                table.insert(State.messages, "Project loaded from project.cat")
             else
                 table.insert(State.messages, "Load failed")
             end
             return true
         end
-        btnY = btnY + 35
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-82 and y >= btnY and y <= btnY+25 then
+        btnY = btnY + btnH + 5
+
+        -- Export .cat (в Documents)
+        if x >= btnX and x <= btnX+btnW and y >= btnY and y <= btnY+btnH then
+            local ok, path = project.exportProject()
+            if ok then
+                table.insert(State.messages, "Exported to: " .. path)
+            else
+                table.insert(State.messages, "Export failed")
+            end
+            return true
+        end
+        btnY = btnY + btnH + 5
+
+        -- Import .cat (из Documents)
+        if x >= btnX and x <= btnX+btnW and y >= btnY and y <= btnY+btnH then
+            local loaded = project.importProject()
+            if loaded then
+                table.insert(State.messages, "Imported from Documents")
+            else
+                table.insert(State.messages, "Import failed (no .cat file found)")
+            end
+            return true
+        end
+        btnY = btnY + btnH + 5
+
+        -- Copy
+        if x >= btnX and x <= btnX+68 and y >= btnY and y <= btnY+btnH then
             blocks.copyBlock()
             return true
         end
-        if x >= love.graphics.getWidth()-78 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+25 then
+        if x >= btnX+75 and x <= btnX+140 and y >= btnY and y <= btnY+btnH then
             blocks.pasteBlock()
             return true
         end
-        btnY = btnY + 35
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+        btnY = btnY + btnH + 5
+
+        -- Variables
+        if x >= btnX and x <= btnX+btnW and y >= btnY and y <= btnY+btnH then
             local msg = "Variables: "
             for k,v in pairs(State.vars) do msg = msg .. k .. "=" .. tostring(v) .. " " end
             table.insert(State.messages, msg)
