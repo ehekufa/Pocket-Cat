@@ -64,7 +64,6 @@ jobs:
           echo "org.gradle.daemon=false" >> love-android/gradle.properties
           echo "org.gradle.parallel=false" >> love-android/gradle.properties
           echo "org.gradle.caching=true" >> love-android/gradle.properties
-          # Отключаем задачи, которые могут потреблять память
           echo "android.enableJetifier=false" >> love-android/gradle.properties
           echo "android.useAndroidX=true" >> love-android/gradle.properties
 
@@ -119,7 +118,6 @@ jobs:
                       signingConfig signingConfigs.release
                       minifyEnabled false
                       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-                      // Отключаем генерацию debug-метаданных для экономии памяти
                       debuggable false
                       jniDebuggable false
                   }
@@ -127,11 +125,12 @@ jobs:
           }
           EOF
 
-      - name: Build Release APK (only arm64, no debug metadata)
+      # ---- ИСПРАВЛЕНО: используем точное имя задачи (embedNoRecord) ----
+      - name: Build Release APK
         working-directory: love-android
-        # Используем assembleEmbedRelease (вместо embedNoRecord, который включает debug-символы)
-        run: ./gradlew assembleEmbedRelease --no-daemon --parallel --console=plain --max-workers=2
+        run: ./gradlew assembleEmbedNoRecordRelease --no-daemon --parallel --console=plain --max-workers=2
 
+      # ---- Коллектор APK (гибкий поиск) ----
       - name: Collect APK
         run: |
           APK_FILE=$(find love-android/app/build/outputs -name "*.apk" | head -n 1)
