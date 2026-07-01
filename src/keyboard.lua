@@ -23,12 +23,14 @@ function M.updatePos()
     local keys = (State.keyboardMode == "digits" and M.digitsKeys or M.abcKeys)
     local cols = #keys[1]
     local totalWidth = cols * (State.keyW + State.keySpacing) + State.keySpacing
-    State.keyboardPosX = love.graphics.getWidth()/2 - totalWidth/2
+    State.keyboardPosX = love.graphics.getWidth() / 2 - totalWidth / 2
     State.keyboardPosY = love.graphics.getHeight() - State.keyboardHeight - 20
 end
 
 function M.drawKeyboard()
-    if not State.keyboardVisible then return end
+    if not State.keyboardVisible then
+        return
+    end
     M.updatePos()
     local kx, ky = State.keyboardPosX, State.keyboardPosY
     local keys = (State.keyboardMode == "digits" and M.digitsKeys or M.abcKeys)
@@ -37,70 +39,74 @@ function M.drawKeyboard()
     local kw = cols * (State.keyW + State.keySpacing) + State.keySpacing
     local kh = rows * (State.keyH + State.keySpacing) + State.keySpacing + 80
 
-    love.graphics.setColor(0.1,0.1,0.1,0.95)
+    love.graphics.setColor(0.1, 0.1, 0.1, 0.95)
     love.graphics.rectangle("fill", kx, ky, kw, kh, 10)
 
     local inputY = ky + 10
     local inputW = kw - 80
-    love.graphics.setColor(0.2,0.2,0.2)
-    love.graphics.rectangle("fill", kx+10, inputY, inputW, 30, 5)
-    love.graphics.setColor(1,1,1)
-    love.graphics.rectangle("line", kx+10, inputY, inputW, 30, 5)
-    love.graphics.setColor(1,1,1)
+    love.graphics.setColor(0.2, 0.2, 0.2)
+    love.graphics.rectangle("fill", kx + 10, inputY, inputW, 30, 5)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.rectangle("line", kx + 10, inputY, inputW, 30, 5)
+    love.graphics.setColor(1, 1, 1)
     local displayText = State.editingText or ""
-    if #displayText > 20 then displayText = displayText:sub(1,20).."…"
-    love.graphics.print(utils.safeUTF8(displayText), kx+15, inputY+8)
+    if #displayText > 20 then
+        displayText = displayText:sub(1, 20) .. "…"
+    end
+    love.graphics.print(utils.safeUTF8(displayText), kx + 15, inputY + 8)
 
     local doneX = kx + 10 + inputW + 10
-    love.graphics.setColor(0.2,0.6,0.2)
+    love.graphics.setColor(0.2, 0.6, 0.2)
     love.graphics.rectangle("fill", doneX, inputY, 60, 30, 5)
-    love.graphics.setColor(1,1,1)
-    love.graphics.printf("Done", doneX, inputY+8, 60, "center")
-    State.keyboardDoneButton = {x=doneX, y=inputY, w=60, h=30}
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Done", doneX, inputY + 8, 60, "center")
+    State.keyboardDoneButton = {x = doneX, y = inputY, w = 60, h = 30}
 
     local keyStartY = ky + 60
     for i, row in ipairs(keys) do
         for j, char in ipairs(row) do
-            local bx = kx + State.keySpacing + (j-1)*(State.keyW + State.keySpacing)
-            local by = keyStartY + (i-1)*(State.keyH + State.keySpacing)
-            love.graphics.setColor(0.3,0.3,0.3)
+            local bx = kx + State.keySpacing + (j - 1) * (State.keyW + State.keySpacing)
+            local by = keyStartY + (i - 1) * (State.keyH + State.keySpacing)
+            love.graphics.setColor(0.3, 0.3, 0.3)
             love.graphics.rectangle("fill", bx, by, State.keyW, State.keyH, 6)
-            love.graphics.setColor(1,1,1)
+            love.graphics.setColor(1, 1, 1)
             love.graphics.rectangle("line", bx, by, State.keyW, State.keyH, 6)
-            love.graphics.printf(char, bx, by+State.keyH/2-8, State.keyW, "center")
+            love.graphics.printf(char, bx, by + State.keyH / 2 - 8, State.keyW, "center")
         end
     end
 
-    local bottomY = keyStartY + rows*(State.keyH + State.keySpacing) + 10
+    local bottomY = keyStartY + rows * (State.keyH + State.keySpacing) + 10
     local backW, abcW, gap = 70, 70, 20
     local totalBottomW = backW + gap + abcW
-    local startX = kx + (kw - totalBottomW)/2
+    local startX = kx + (kw - totalBottomW) / 2
 
-    love.graphics.setColor(0.6,0.2,0.2)
+    love.graphics.setColor(0.6, 0.2, 0.2)
     love.graphics.rectangle("fill", startX, bottomY, backW, 30, 6)
-    love.graphics.setColor(1,1,1)
-    love.graphics.printf("Back", startX, bottomY+8, backW, "center")
-    State.keyboardBackButton = {x=startX, y=bottomY, w=backW, h=30}
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Back", startX, bottomY + 8, backW, "center")
+    State.keyboardBackButton = {x = startX, y = bottomY, w = backW, h = 30}
 
     local abcX = startX + backW + gap
-    love.graphics.setColor(0.2,0.4,0.8)
+    love.graphics.setColor(0.2, 0.4, 0.8)
     love.graphics.rectangle("fill", abcX, bottomY, abcW, 30, 6)
-    love.graphics.setColor(1,1,1)
+    love.graphics.setColor(1, 1, 1)
     local modeLabel = (State.keyboardMode == "digits") and "ABC" or "123"
-    love.graphics.printf(modeLabel, abcX, bottomY+8, abcW, "center")
-    State.keyboardModeButton = {x=abcX, y=bottomY, w=abcW, h=30}
+    love.graphics.printf(modeLabel, abcX, bottomY + 8, abcW, "center")
+    State.keyboardModeButton = {x = abcX, y = bottomY, w = abcW, h = 30}
 
     local closeX = kx + kw + 5
     local closeY = ky - 10
-    love.graphics.setColor(1,0,0)
+    love.graphics.setColor(1, 0, 0)
     love.graphics.rectangle("fill", closeX, closeY, 30, 30, 5)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("X", closeX+8, closeY+5)
-    State.keyboardCloseButton = {x=closeX, y=closeY, w=30, h=30}
-end  -- <-- КОНЕЦ M.drawKeyboard
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("X", closeX + 8, closeY + 5)
+    State.keyboardCloseButton = {x = closeX, y = closeY, w = 30, h = 30}
+end
 
 function M.handleTouch(x, y)
-    if not State.keyboardVisible then return false end
+    if not State.keyboardVisible then
+        return false
+    end
 
     local kx, ky = State.keyboardPosX, State.keyboardPosY
     local keys = (State.keyboardMode == "digits" and M.digitsKeys or M.abcKeys)
@@ -147,15 +153,19 @@ function M.handleTouch(x, y)
     if State.keyboardModeButton then
         local mb = State.keyboardModeButton
         if x >= mb.x and x <= mb.x + mb.w and y >= mb.y and y <= mb.y + mb.h then
-            State.keyboardMode = (State.keyboardMode == "digits") and "abc" or "digits"
+            if State.keyboardMode == "digits" then
+                State.keyboardMode = "abc"
+            else
+                State.keyboardMode = "digits"
+            end
             return true
         end
     end
 
     for i, row in ipairs(keys) do
         for j, char in ipairs(row) do
-            local bx = kx + State.keySpacing + (j-1)*(State.keyW + State.keySpacing)
-            local by = keyStartY + (i-1)*(State.keyH + State.keySpacing)
+            local bx = kx + State.keySpacing + (j - 1) * (State.keyW + State.keySpacing)
+            local by = keyStartY + (i - 1) * (State.keyH + State.keySpacing)
             if x >= bx and x <= bx + State.keyW and y >= by and y <= by + State.keyH then
                 State.editingText = State.editingText .. char
                 return true
@@ -172,7 +182,7 @@ function M.handleTouch(x, y)
     end
 
     return false
-end  -- <-- КОНЕЦ M.handleTouch
+end
 
 function M.clearButtons()
     State.keyboardCloseButton = nil
@@ -213,9 +223,8 @@ function M.keyPressed(key)
             require("src.project").saveProject("project.cat")
         end
     end
-end  -- <-- КОНЕЦ M.keyPressed
+end
 
--- Инициализация режима
 State.keyboardMode = State.keyboardMode or "digits"
 
 return M
