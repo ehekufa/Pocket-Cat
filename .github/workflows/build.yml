@@ -57,14 +57,6 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-v2
 
-      - name: Cache native build
-        uses: actions/cache@v4
-        with:
-          path: |
-            love-android/app/.cxx
-            love-android/app/build
-          key: native-v2
-
       - name: Package game.love
         run: zip -9 -r game.love . -x "*.git*" -x ".github/*" -x "love-android/*" -x "*.yml"
 
@@ -72,6 +64,8 @@ jobs:
         run: |
           mkdir -p love-android/app/src/embed/assets
           cp game.love love-android/app/src/embed/assets/game.love
+          # Проверка, что файл скопировался
+          ls -la love-android/app/src/embed/assets/
 
       - name: Force arm64
         run: |
@@ -120,20 +114,29 @@ jobs:
           }
           EOF
 
+      # ---- Используем assembleRelease (или assembleEmbedRelease) ----
       - name: Build Release APK
         working-directory: love-android
-        run: ./gradlew assembleEmbedNoRecordRelease --no-daemon --parallel --console=plain
+        # Пробуем стандартный вариант, который гарантированно существует
+        run: ./gradlew assembleRelease --no-daemon --parallel --console=plain
+        # Если не работает, попробуйте assembleEmbedRelease
+        # run: ./gradlew assembleEmbedRelease --no-daemon --parallel --console=plain
 
       - name: Collect APK
         run: |
-          APK_PATH="love-android/app/build/outputs/apk/embedNoRecord/release/app-embedNoRecord-release.apk"
-          if [ -f "$APK_PATH" ]; then
-            cp "$APK_PATH" PocketCat_Release.apk
+          # Ищем любой APK в папке сборки
+          APK_FILE=$(find love-android/app/build/outputs -name "*.apk" | head -n 1)
+          if [ -n "$APK_FILE" ]; then
+            echo "Found APK: $APK_FILE"
+            cp "$APK_FILE" PocketCat_Release.apk
           else
-            echo "APK not found!" && exit 1
+            echo "No APK found. Listing build outputs:"
+            find love-android/app/build -type d 2>/dev/null || echo "No build directory"
+            exit 1
           fi
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
         with:
           name: PocketCat_Android_Release
           path: PocketCat_Release.apk
