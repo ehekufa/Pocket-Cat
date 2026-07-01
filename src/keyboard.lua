@@ -97,7 +97,7 @@ function M.drawKeyboard()
     love.graphics.setColor(1,1,1)
     love.graphics.print("X", closeX+8, closeY+5)
     State.keyboardCloseButton = {x=closeX, y=closeY, w=30, h=30}
-end  -- <-- конец M.drawKeyboard
+end  -- <-- КОНЕЦ M.drawKeyboard
 
 function M.handleTouch(x, y)
     if not State.keyboardVisible then return false end
@@ -172,7 +172,7 @@ function M.handleTouch(x, y)
     end
 
     return false
-end  -- <-- конец M.handleTouch
+end  -- <-- КОНЕЦ M.handleTouch
 
 function M.clearButtons()
     State.keyboardCloseButton = nil
@@ -213,9 +213,9 @@ function M.keyPressed(key)
             require("src.project").saveProject("project.cat")
         end
     end
-end  -- <-- конец M.keyPressed
+end  -- <-- КОНЕЦ M.keyPressed
 
--- Инициализация режима (если не задан)
+-- Инициализация режима
 State.keyboardMode = State.keyboardMode or "digits"
 
 return M
