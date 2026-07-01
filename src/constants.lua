@@ -42,12 +42,15 @@ M.paletteBlocks = {
     {type="action", name="penSize", label="pen size", param=2, category="pen"},
     -- Sound
     {type="action", name="playSound", label="play sound", param="", category="sound"},
-    -- Control
-    {type="action", name="wait", label="wait", param=1, category="control"},
-    {type="action", name="repeat", label="repeat 3 times", param=3, category="control"},
-    {type="action", name="forever", label="forever", category="control"},
-    {type="action", name="ifTap", label="if tapped", category="control"},
-    {type="action", name="stopAll", label="stop all", category="control"},
+    -- Control (вложенные)
+    {type="control", name="repeat", label="repeat", param=3, category="control"},
+    {type="control", name="forever", label="forever", category="control"},
+    {type="control", name="if", label="if", param="", category="control"},
+    {type="control", name="ifElse", label="if else", param="", category="control"},
+    -- Variables
+    {type="action", name="setVar", label="set variable", param="", category="variables"},
+    {type="action", name="changeVar", label="change variable by", param="", category="variables"},
+    {type="action", name="showVar", label="show variable", param="", category="variables"},
     -- Text
     {type="action", name="printText", label="print text", param="Hello!", category="text"},
     -- Sensing
