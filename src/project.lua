@@ -79,45 +79,69 @@ function M.addObject()
     blocks.updateWorkspace()
 end
 
--- ИСПРАВЛЕННАЯ ФУНКЦИЯ
+-- === ИСПРАВЛЕННАЯ ФУНКЦИЯ ДЛЯ ПЕРЕТАСКИВАНИЯ ФАЙЛОВ ===
 function M.handleFileDrop(file)
-    -- В LÖVE 11.x при перетаскивании файла передаётся объект File.
-    -- Получаем имя файла.
-    local filename = file:getFilename() or file.name or tostring(file)
-    if not filename then return end
+    -- file может быть объектом File (в LÖVE 11+) или строкой (имя файла)
+    local fname = type(file) == "table" and file:getFilename() or file
+    if not fname then return end
 
-    local ext = filename:match("%.([^.]+)$")
+    -- Определяем расширение
+    local ext = fname:match("%.([^.]+)$")
     if not ext then return end
     ext = ext:lower()
 
+    -- Определяем папку назначения
     local destFolder = "sprites/"
     if ext == "ogg" or ext == "mp3" or ext == "wav" then
         destFolder = "sounds/"
     end
 
+    -- Создаём папку, если её нет
     love.filesystem.createDirectory(destFolder)
 
-    -- Получаем базовое имя без расширения
-    local basename = filename:match("^(.+)%.[^.]+$") or filename
-    local destName = destFolder .. basename .. "." .. ext
+    -- Получаем имя файла без пути
+    local baseName = fname:match("([^/\\]+)$") or fname
+    local destName = destFolder .. baseName
 
-    -- Читаем содержимое файла
-    local data = love.filesystem.read(filename)
-    if data then
-        love.filesystem.write(destName, data)
+    -- Копируем файл
+    -- Если file - объект File, используем его методы
+    if type(file) == "table" and file:getFilename then
+        -- LÖVE 11+: можно прочитать содержимое через file:read()
+        local data = file:read()
+        if data then
+            love.filesystem.write(destName, data)
+        end
     else
-        -- Если не удалось прочитать (возможно, файл ещё не в песочнице), пробуем скопировать через системный путь
-        -- В некоторых версиях LÖVE file может быть объектом с методом getFilename, но если не работает, используем системный путь
-        -- Можно также использовать love.filesystem.newFile(file:getFilename())
-        -- Для совместимости с перетаскиванием извне, попробуем другой подход: скопировать через системные вызовы
-        -- или просто считать как обычно.
-        -- Этот код можно доработать под свои нужды.
+        -- Если передана строка (имя файла) — читаем из обычной файловой системы
+        -- Это не сработает в любом случае, т.к. love.filesystem не видит внешние файлы.
+        -- Но мы можем использовать love.filesystem.read, если файл уже внутри .love.
+        -- В случае перетаскивания обычно передаётся объект File.
+        -- Добавим fallback.
+        local fileHandle = io.open(fname, "rb")
+        if fileHandle then
+            local content = fileHandle:read("*all")
+            fileHandle:close()
+            love.filesystem.write(destName, content)
+        else
+            -- Пробуем через love.filesystem
+            local data = love.filesystem.read(fname)
+            if data then
+                love.filesystem.write(destName, data)
+            end
+        end
     end
 
+    -- Привязываем файл к текущему объекту
     local obj = M.getCurrentObject()
     if obj then
         if destFolder == "sprites/" then
             obj.image = destName
+            -- Очищаем загруженное изображение, чтобы оно перезагрузилось
+            obj.loadedImage = nil
+            -- Также сбрасываем показ куба/сферы, показываем спрайт
+            State.showImage = true
+            State.showCube = false
+            State.showSphere = false
         elseif destFolder == "sounds/" then
             obj.sound = destName
         end
