@@ -6,35 +6,42 @@ local blocks = require("src.blocks")
 local M = {}
 
 function M.updatePos()
-    local keys = (State.keyboardMode == "digits" and State.digitsKeys or
-                  State.keyboardMode == "ru" and State.ruKeys or
-                  State.enKeys)
-    local cols = 0
-    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
+    -- Раскладка цифр + кнопки + и -
+    local keys = {
+        {"7","8","9"},
+        {"4","5","6"},
+        {"1","2","3"},
+        {"0","-","+"}
+    }
+    local cols = #keys[1]
     local totalWidth = cols * (State.keyW + State.keySpacing) + State.keySpacing
     State.keyboardPosX = love.graphics.getWidth()/2 - totalWidth/2
-    State.keyboardPosY = love.graphics.getHeight() - State.keyboardHeight - 10
+    State.keyboardPosY = love.graphics.getHeight() - State.keyboardHeight - 20
 end
 
 function M.drawKeyboard()
     if not State.keyboardVisible then return end
     M.updatePos()
     local kx, ky = State.keyboardPosX, State.keyboardPosY
-    local keys = (State.keyboardMode == "digits" and State.digitsKeys or
-                  State.keyboardMode == "ru" and State.ruKeys or
-                  State.enKeys)
-    local rows, cols = #keys, 0
-    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
-    local kw = cols * (State.keyW + State.keySpacing) + State.keySpacing
-    local kh = rows * (State.keyH + State.keySpacing) + State.keySpacing + 80 + 30
 
-    -- Фон клавиатуры
+    local keys = {
+        {"7","8","9"},
+        {"4","5","6"},
+        {"1","2","3"},
+        {"0","-","+"}
+    }
+    local rows = #keys
+    local cols = #keys[1]
+    local kw = cols * (State.keyW + State.keySpacing) + State.keySpacing
+    local kh = rows * (State.keyH + State.keySpacing) + State.keySpacing + 50
+
+    -- Фон
     love.graphics.setColor(0.1, 0.1, 0.1, 0.95)
     love.graphics.rectangle("fill", kx, ky, kw, kh, 10)
 
-    -- Поле ввода
+    -- Поле ввода (слева)
     local inputY = ky + 10
-    local inputW = kw - 20
+    local inputW = kw - 80  -- оставляем место для кнопки Done
     love.graphics.setColor(0.2, 0.2, 0.2)
     love.graphics.rectangle("fill", kx + 10, inputY, inputW, 30, 5)
     love.graphics.setColor(1, 1, 1)
@@ -44,11 +51,19 @@ function M.drawKeyboard()
     if #displayText > 20 then displayText = displayText:sub(1, 20) .. "…" end
     love.graphics.print(utils.safeUTF8(displayText), kx + 15, inputY + 8)
 
-    -- Клавиши
+    -- Кнопка "Done" справа от поля ввода
+    local doneX = kx + 10 + inputW + 10
+    love.graphics.setColor(0.2, 0.6, 0.2)
+    love.graphics.rectangle("fill", doneX, inputY, 60, 30, 5)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.printf("Done", doneX, inputY + 8, 60, "center")
+    State.keyboardDoneButton = {x = doneX, y = inputY, w = 60, h = 30}
+
+    -- Цифровые клавиши
     for i, row in ipairs(keys) do
         for j, char in ipairs(row) do
             local bx = kx + State.keySpacing + (j - 1) * (State.keyW + State.keySpacing)
-            local by = ky + State.keySpacing + (i - 1) * (State.keyH + State.keySpacing) + 50
+            local by = ky + State.keySpacing + (i - 1) * (State.keyH + State.keySpacing) + 60
             love.graphics.setColor(0.3, 0.3, 0.3)
             love.graphics.rectangle("fill", bx, by, State.keyW, State.keyH, 6)
             love.graphics.setColor(1, 1, 1)
@@ -57,120 +72,101 @@ function M.drawKeyboard()
         end
     end
 
-    -- === КНОПКИ РЕЖИМОВ (RU, EN, 123) ===
-    local swY = ky + rows * (State.keyH + State.keySpacing) + State.keySpacing + 50
-    local modes = {{"123", "digits"}, {"АБВ", "ru"}, {"ABC", "en"}}
-    for i, m in ipairs(modes) do
-        local bx = kx + State.keySpacing + (i - 1) * (55 + State.keySpacing)
-        love.graphics.setColor(0.3, 0.3, 0.3)
-        love.graphics.rectangle("fill", bx, swY, 55, 30, 6)
-        love.graphics.setColor(1, 1, 1)
-        love.graphics.rectangle("line", bx, swY, 55, 30, 6)
-        love.graphics.printf(m[1], bx, swY + 8, 55, "center")
-    end
-
-    -- === КНОПКИ PASTE и DONE ===
-    local doneX = kx + kw - 70
-    local pasteX = doneX - 75
-
-    love.graphics.setColor(0.4, 0.5, 1.0)
-    love.graphics.rectangle("fill", pasteX, swY, 65, 30, 6)
+    -- Кнопка Backspace (⌫) в правом нижнем углу
+    local backX = kx + kw - 60
+    local backY = ky + State.keySpacing + 3 * (State.keyH + State.keySpacing) + 60
+    love.graphics.setColor(0.6, 0.2, 0.2)
+    love.graphics.rectangle("fill", backX, backY, 50, State.keyH, 6)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.rectangle("line", pasteX, swY, 65, 30, 6)
-    love.graphics.printf("Paste", pasteX, swY + 8, 65, "center")
+    love.graphics.printf("⌫", backX, backY + State.keyH / 2 - 8, 50, "center")
+    State.keyboardBackspaceButton = {x = backX, y = backY, w = 50, h = State.keyH}
 
-    love.graphics.setColor(0.2, 0.6, 0.2)
-    love.graphics.rectangle("fill", doneX, swY, 60, 30, 6)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.rectangle("line", doneX, swY, 60, 30, 6)
-    love.graphics.printf("Done", doneX, swY + 8, 60, "center")
-
-    -- === КНОПКА ЗАКРЫТИЯ (КРАСНЫЙ КРЕСТИК) ===
+    -- Кнопка закрытия (крестик) справа вверху
     local closeX = kx + kw + 5
     local closeY = ky - 10
     love.graphics.setColor(1, 0, 0)
     love.graphics.rectangle("fill", closeX, closeY, 30, 30, 5)
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("X", closeX + 8, closeY + 5)
+    State.keyboardCloseButton = {x = closeX, y = closeY, w = 30, h = 30}
 end
 
 function M.handleTouch(x, y)
     if not State.keyboardVisible then return false end
 
-    local kx, ky = State.keyboardPosX, State.keyboardPosY
-    local keys = (State.keyboardMode == "digits" and State.digitsKeys or
-                  State.keyboardMode == "ru" and State.ruKeys or
-                  State.enKeys)
-    local rows, cols = #keys, 0
-    for _, row in ipairs(keys) do if #row > cols then cols = #row end end
+    local keys = {
+        {"7","8","9"},
+        {"4","5","6"},
+        {"1","2","3"},
+        {"0","-","+"}
+    }
+    local rows = #keys
+    local cols = #keys[1]
     local kw = cols * (State.keyW + State.keySpacing) + State.keySpacing
-    local kh = rows * (State.keyH + State.keySpacing) + State.keySpacing + 80 + 30
+    local kx, ky = State.keyboardPosX, State.keyboardPosY
 
-    -- === КНОПКА ЗАКРЫТИЯ ===
-    local closeX = kx + kw + 5
-    local closeY = ky - 10
-    if x >= closeX and x <= closeX + 30 and y >= closeY and y <= closeY + 30 then
-        State.keyboardVisible = false
-        State.editingBlock = nil
-        State.editingText = ""
-        return true
+    -- Закрытие (крестик)
+    if State.keyboardCloseButton then
+        local cb = State.keyboardCloseButton
+        if x >= cb.x and x <= cb.x + cb.w and y >= cb.y and y <= cb.y + cb.h then
+            State.keyboardVisible = false
+            State.editingBlock = nil
+            State.editingText = ""
+            State.keyboardCloseButton = nil
+            State.keyboardDoneButton = nil
+            State.keyboardBackspaceButton = nil
+            return true
+        end
     end
 
-    -- === КЛАВИШИ ===
+    -- Кнопка Done
+    if State.keyboardDoneButton then
+        local db = State.keyboardDoneButton
+        if x >= db.x and x <= db.x + db.w and y >= db.y and y <= db.y + db.h then
+            if State.editingBlock then
+                State.editingBlock.param = State.editingText
+                require("src.runtime").compileScript()
+                table.insert(State.messages, "Parameter updated: " .. State.editingText)
+            end
+            State.editingBlock = nil
+            State.editingText = ""
+            State.keyboardVisible = false
+            State.keyboardCloseButton = nil
+            State.keyboardDoneButton = nil
+            State.keyboardBackspaceButton = nil
+            return true
+        end
+    end
+
+    -- Backspace
+    if State.keyboardBackspaceButton then
+        local bb = State.keyboardBackspaceButton
+        if x >= bb.x and x <= bb.x + bb.w and y >= bb.y and y <= bb.y + bb.h then
+            State.editingText = State.editingText:sub(1, -2)
+            return true
+        end
+    end
+
+    -- Цифровые и +/-
     for i, row in ipairs(keys) do
         for j, char in ipairs(row) do
             local bx = kx + State.keySpacing + (j - 1) * (State.keyW + State.keySpacing)
-            local by = ky + State.keySpacing + (i - 1) * (State.keyH + State.keySpacing) + 50
+            local by = ky + State.keySpacing + (i - 1) * (State.keyH + State.keySpacing) + 60
             if x >= bx and x <= bx + State.keyW and y >= by and y <= by + State.keyH then
-                if char == "⌫" then
-                    State.editingText = State.editingText:sub(1, -2)
-                else
-                    State.editingText = State.editingText .. char
-                end
+                State.editingText = State.editingText .. char
                 return true
             end
         end
     end
 
-    -- === КНОПКИ РЕЖИМОВ ===
-    local swY = ky + rows * (State.keyH + State.keySpacing) + State.keySpacing + 50
-    local modes = {{"123", "digits"}, {"АБВ", "ru"}, {"ABC", "en"}}
-    for i, m in ipairs(modes) do
-        local bx = kx + State.keySpacing + (i - 1) * (55 + State.keySpacing)
-        if x >= bx and x <= bx + 55 and y >= swY and y <= swY + 30 then
-            State.keyboardMode = m[2]
-            return true
-        end
-    end
-
-    -- === КНОПКА PASTE ===
-    local doneX = kx + kw - 70
-    local pasteX = doneX - 75
-    if x >= pasteX and x <= pasteX + 65 and y >= swY and y <= swY + 30 then
-        local clip = love.system.getClipboardText()
-        if clip then State.editingText = State.editingText .. utils.safeUTF8(clip) end
-        return true
-    end
-
-    -- === КНОПКА DONE (СОХРАНЕНИЕ) ===
-    if x >= doneX and x <= doneX + 60 and y >= swY and y <= swY + 30 then
-        if State.editingBlock then
-            -- Сохраняем параметр (как строку, чтобы поддерживать выражения)
-            State.editingBlock.param = State.editingText
-            require("src.runtime").compileScript()
-            table.insert(State.messages, "Parameter updated: " .. State.editingText)
-        end
-        State.editingBlock = nil
-        State.editingText = ""
-        State.keyboardVisible = false
-        return true
-    end
-
-    -- Клик вне клавиатуры закрывает её
+    -- Клик вне клавиатуры закрывает
     if y < ky then
+        State.keyboardVisible = false
         State.editingBlock = nil
         State.editingText = ""
-        State.keyboardVisible = false
+        State.keyboardCloseButton = nil
+        State.keyboardDoneButton = nil
+        State.keyboardBackspaceButton = nil
         return true
     end
 
@@ -189,15 +185,20 @@ function M.keyPressed(key)
             if State.editingBlock then
                 State.editingBlock.param = State.editingText
                 require("src.runtime").compileScript()
-                table.insert(State.messages, "Parameter updated: " .. State.editingText)
             end
             State.editingBlock = nil
             State.editingText = ""
             State.keyboardVisible = false
+            State.keyboardCloseButton = nil
+            State.keyboardDoneButton = nil
+            State.keyboardBackspaceButton = nil
         elseif key == "escape" then
             State.editingBlock = nil
             State.editingText = ""
             State.keyboardVisible = false
+            State.keyboardCloseButton = nil
+            State.keyboardDoneButton = nil
+            State.keyboardBackspaceButton = nil
         elseif key == "backspace" then
             State.editingText = State.editingText:sub(1, -2)
         end
@@ -206,18 +207,6 @@ function M.keyPressed(key)
             require("src.runtime").runProject()
         elseif key == "f2" then
             require("src.project").saveProject("project.cat")
-        elseif key == "delete" then
-            if State.editingBlock then
-                for i, b in ipairs(State.workspaceBlocks) do
-                    if b == State.editingBlock then
-                        blocks.deleteBlockByIndex(i)
-                        break
-                    end
-                end
-                State.editingBlock = nil
-                State.editingText = ""
-                State.keyboardVisible = false
-            end
         end
     end
 end
