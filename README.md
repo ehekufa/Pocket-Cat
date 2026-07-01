@@ -1,54 +1,81 @@
 # Pocket Cat
 
-Проект, который начался как попытка сделать что-то похожее на Pocket Up, но на LÖVE.  
-Почему? Потому что оригинал писался на Corona, а я хотел попробовать свои силы на LÖVE и заодно сделать что-то, что можно запускать на чём угодно — от телефона до ПК.
-
-Пока что это конструктор игр с блоками, как в Scratch, но всё очень сырое.  
-Если вы искали готовый инструмент для создания игр — возможно, это не совсем то, но если вам интересно покопаться в коде или доработать, добро пожаловать.
+Two versions: English first, then Russian.
 
 ---
 
-## Что здесь есть
+## 🇬🇧 English (EN)
 
-- Блоки с параметрами, можно перетаскивать, редактировать (числа, плюс/минус, буквы).
-- Сцены и объекты — можно переключаться, добавлять.
-- Встроенный редактор спрайтов (примитивный, но работает).
-- Поддержка переменных и арифметических выражений (типа `x+10`).
-- Сохранение проектов в JSON (с расширением .cat).
-- Сборка APK (только arm64) и портативного EXE через GitHub Actions.
+This is a hobby project — a block-based game builder inspired by Pocket Up, but built with LÖVE instead of Corona.
 
----
+Why LÖVE? Because I wanted something cross-platform that works on PC, phones, and maybe even toasters (okay, not toasters). The code is rough, the UI is clunky, but it kinda works.
 
-## Как запустить
+If you're looking for a polished game maker, this isn't it. If you want to tinker, break things, or contribute — be my guest.
 
-Скачайте LÖVE 11.5, откройте папку проекта как love-приложение.  
-Если на телефоне — собирайте APK или берите готовый из релизов (если они есть).  
-Всё остальное в коде.
+### What's inside
 
----
+- Drag-and-drop blocks with editable params (numbers, letters, +, -).
+- Scenes and objects (switch, add, delete).
+- A basic sprite editor (pixel-level, nothing fancy).
+- Variables and simple math in block parameters (like `x+10`).
+- Save/load projects as JSON (`.cat` files).
+- Auto-build for Android (arm64 APK) and Windows portable EXE via GitHub Actions.
 
-## Что не работает
+### How to run
 
-- Много багов, особенно с перетаскиванием блоков и вложенными структурами.
-- Интерфейс не адаптируется под мобильные экраны (только если fullscreen).
-- Нет нормальной документации, кроме этого файла.
+Get LÖVE 11.5, then open the project folder as a love app.  
+On Android, build the APK or grab a pre-built one from Actions/Releases.  
+For everything else — read the code, it's self-documenting (kinda).
 
-Но если вы хотите помочь — милости просим.  
-Я не обещаю, что буду поддерживать проект активно, но pull request’ы принимаю.
+### Known issues
 
----
+- Block dragging is janky, especially with nested blocks.
+- Mobile UI isn't really optimised (fullscreen only).
+- No proper docs, sorry.
 
-## Сборка
+### Developers
 
-Подробнее смотреть в .github/workflows/build.yml, там всё описано.  
-Для локальной сборки нужен любый способ слить love.exe и game.love, либо использовать love-android.
+- **derka** — UI, block system, sprite editor, debugging, architecture, core logic, Android build.
+- **dimas4ek229** — idea.
 
----
-
-## Лицензия
-
-Не заморачивался, сделал MIT. Можете делать с этим кодом что угодно, только не забудьте указать автора, если будете использовать где-то.
+We're not actively maintaining this, but PRs are welcome.  
+Use it, break it, fix it — it's MIT.
 
 ---
 
-Удачи. И да, проект — это просто хобби, так что не ждите чудес.
+## 🇷🇺 Русская версия (RU)
+
+Это хобби-проект — конструктор игр на блоках, вдохновлённый Pocket Up, но написанный на LÖVE, а не на Corona.
+
+Почему LÖVE? Потому что хотелось кроссплатформенности, чтобы работало и на ПК, и на телефонах. Код сыроват, интерфейс неидеален, но в целом оно работает.
+
+Если вы ищете готовый инструмент для создания игр — это не оно. Если хотите покопаться, поломать или доработать — добро пожаловать.
+
+### Что внутри
+
+- Блоки с параметрами (перетаскивание, редактирование: цифры, буквы, +, -).
+- Сцены и объекты (переключение, добавление, удаление).
+- Примитивный редактор спрайтов (попиксельный, без наворотов).
+- Переменные и простая арифметика в параметрах (типа `x+10`).
+- Сохранение/загрузка проектов в JSON (файлы `.cat`).
+- Автосборка APK (только arm64) и портативного EXE через GitHub Actions.
+
+### Как запустить
+
+Поставьте LÖVE 11.5, откройте папку проекта как love-приложение.  
+На Android — соберите APK или возьмите готовый из Actions/Releases.  
+Всё остальное — в коде, он сам себя документирует (ну, почти).
+
+### Известные проблемы
+
+- Перетаскивание блоков работает с костылями, особенно с вложенными.
+- Интерфейс под мобилки не оптимизирован (только полноэкранный режим).
+- Нормальной документации нет, извините.
+
+### Разработчики
+
+- **derka** — интерфейс, система блоков, редактор спрайтов, отладка, архитектура, ядро, сборка под Android.
+- **dimas4ek229** — идея.
+
+Мы не поддерживаем проект активно, но пул-реквесты принимаются.  
+Используйте, ломайте, чините — код под MIT.
