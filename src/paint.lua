@@ -12,7 +12,7 @@ function M.init()
     love.graphics.setCanvas()
     State.paintCanvas:setFilter("linear", "linear")
     M.recalcScale()
-    State.closeButton = nil -- инициализируем
+    State.closeButton = nil
 end
 
 function M.recalcScale()
@@ -44,7 +44,7 @@ function M.drawPaint()
     love.graphics.rectangle("line", cx, cy, pw, ph)
     love.graphics.draw(State.paintCanvas, cx, cy, 0, State.paintScale, State.paintScale)
 
-    -- === КРЕСТИК ДЛЯ ЗАКРЫТИЯ (в правом верхнем углу) ===
+    -- Крестик закрытия
     local closeX = cx + pw - 30
     local closeY = cy + 10
     love.graphics.setColor(1, 0, 0)
@@ -106,6 +106,8 @@ function M.drawPaint()
             love.graphics.print("Y: " .. State.paintCustomInputText, px+5, customY+37)
         end
     end
+
+    -- HSV
     love.graphics.setColor(1,1,1)
     love.graphics.print("Custom Color:", px, customY+70)
     local hsvX, hsvY = px, customY+90
@@ -142,12 +144,10 @@ function M.drawPaint()
     love.graphics.setColor(1,1,1)
     love.graphics.rectangle("line", vm-1, vY-1, 3, 12)
 
-    -- === КНОПКА SAVE (сохраняет, но НЕ закрывает) ===
+    -- Save button
     love.graphics.setColor(0.3, 0.8, 0.3)
     love.graphics.rectangle("fill", px, vY+20, 120, 30, 5)
     love.graphics.print("Save", px+40, vY+28)
-
-    -- Закрывающую кнопку мы убрали, теперь только крестик.
 end
 
 function M.handleTouch(x, y, isDown)
@@ -157,7 +157,7 @@ function M.handleTouch(x, y, isDown)
     local ph = State.paintHeight * State.paintScale
     local px = cx + pw + 30
 
-    -- === КРЕСТИК ЗАКРЫТИЯ ===
+    -- Закрытие по крестику
     if State.closeButton then
         local cb = State.closeButton
         if x >= cb.x and x <= cb.x + cb.w and y >= cb.y and y <= cb.y + cb.h then
@@ -170,9 +170,14 @@ function M.handleTouch(x, y, isDown)
         end
     end
 
-    -- === КНОПКА SAVE (сохраняет, не закрывает) ===
-    local vX, vY = px, 50 + hsvSize + 10 + 10  -- точно под палитрой
-    -- координаты Save: px, vY+20 (как нарисовано)
+    -- HSV и другие элементы используют hsvSize
+    local py = 430
+    local customY = py + 60
+    local hsvX, hsvY = px, customY + 90
+    local hsvSize = 60
+    local vX, vY = px, hsvY + hsvSize + 10
+
+    -- Кнопка Save (координаты vY+20)
     local saveX, saveY = px, vY + 20
     if x >= saveX and x <= saveX + 120 and y >= saveY and y <= saveY + 30 then
         love.graphics.setCanvas()
@@ -188,7 +193,6 @@ function M.handleTouch(x, y, isDown)
         return true
     end
 
-    -- === ОСТАЛЬНЫЕ ЭЛЕМЕНТЫ (инструменты, размеры, HSV, рисование) ===
     -- Tools
     for i, tool in ipairs(State.paintTools) do
         local ty = 90 + (i-1)*32
@@ -214,7 +218,6 @@ function M.handleTouch(x, y, isDown)
     end
 
     -- Preset canvas sizes
-    local py = 430
     for i, psz in ipairs(State.paintPresetSizes) do
         local sx = px + ((i-1)%3) * 55
         local sy = py + math.floor((i-1)/3) * 30
@@ -227,8 +230,7 @@ function M.handleTouch(x, y, isDown)
     end
 
     -- Custom button
-    local customBtnY = py + 60
-    if x > px and x < px+120 and y > customBtnY and y < customBtnY+26 then
+    if x > px and x < px+120 and y > customY and y < customY+26 then
         State.paintCustomStep = 1
         State.paintCustomInputText = ""
         State.editingBlockIdx = nil
@@ -238,8 +240,6 @@ function M.handleTouch(x, y, isDown)
     end
 
     -- HSV picker
-    local hsvX, hsvY = px, customBtnY+90
-    local hsvSize = 60
     if x >= hsvX and x <= hsvX+hsvSize and y >= hsvY and y <= hsvY+hsvSize then
         State.paintHue = (x - hsvX) / hsvSize
         State.paintSaturation = 1 - (y - hsvY) / hsvSize
@@ -249,7 +249,6 @@ function M.handleTouch(x, y, isDown)
     end
 
     -- Value slider
-    local vX, vY = px, hsvY + hsvSize + 10
     if x >= vX and x <= vX+119 and y >= vY and y <= vY+10 then
         State.paintValue = (x - vX) / 119
         local r,g,b = utils.hsvToRGB(State.paintHue, State.paintSaturation, State.paintValue)
@@ -257,7 +256,7 @@ function M.handleTouch(x, y, isDown)
         return true
     end
 
-    -- Drawing on canvas (только если нажата кнопка мыши)
+    -- Drawing on canvas
     if isDown and x >= cx and x <= cx+pw and y >= cy and y <= cy+ph then
         local pxc = math.floor((x - cx) / State.paintScale) + 1
         local pyc = math.floor((y - cy) / State.paintScale) + 1
