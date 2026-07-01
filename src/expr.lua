@@ -1,9 +1,6 @@
 -- src/expr.lua
 local M = {}
 
--- Простой рекурсивный парсер для арифметических выражений
--- Поддерживает: + - * / ^ ( ) sin cos tan sqrt abs log exp pi e
-
 local function tokenize(expr)
     local tokens = {}
     local i = 1
@@ -37,15 +34,14 @@ local function tokenize(expr)
             if c == "+" or c == "-" or c == "*" or c == "/" or c == "^" or c == "(" or c == ")" then
                 table.insert(tokens, {type = "operator", value = c})
             else
-                error("unknown char: " .. c)
+                -- игнорируем неизвестные символы
+                i = i + 1
             end
-            i = i + 1
         end
     end
     return tokens
 end
 
--- Shunting-yard алгоритм для преобразования в RPN
 local function toRPN(tokens)
     local output = {}
     local stack = {}
@@ -64,7 +60,7 @@ local function toRPN(tokens)
                 while #stack > 0 and stack[#stack].value ~= "(" do
                     table.insert(output, table.remove(stack))
                 end
-                table.remove(stack) -- remove "("
+                table.remove(stack)
                 if #stack > 0 and stack[#stack].type == "function" then
                     table.insert(output, table.remove(stack))
                 end
@@ -84,10 +80,15 @@ local function toRPN(tokens)
     return output
 end
 
--- Вычисление RPN с подстановкой переменных
 function M.evaluate(expr, env)
     env = env or {}
+    if type(expr) == "number" then return expr end
+    if type(expr) == "string" then
+        local num = tonumber(expr)
+        if num then return num end
+    end
     local tokens = tokenize(expr)
+    if #tokens == 0 then return nil end
     local rpn = toRPN(tokens)
     local stack = {}
 
@@ -97,11 +98,13 @@ function M.evaluate(expr, env)
         elseif tok.type == "variable" then
             local val = env[tok.value]
             if val == nil then
-                error("undefined variable: " .. tok.value)
+                -- если переменная не определена, считаем её за 0
+                val = 0
             end
             table.insert(stack, val)
         elseif tok.type == "function" then
             local arg = table.remove(stack)
+            if arg == nil then arg = 0 end
             if tok.value == "sin" then table.insert(stack, math.sin(arg))
             elseif tok.value == "cos" then table.insert(stack, math.cos(arg))
             elseif tok.value == "tan" then table.insert(stack, math.tan(arg))
@@ -113,10 +116,12 @@ function M.evaluate(expr, env)
         elseif tok.type == "operator" then
             local b = table.remove(stack)
             local a = table.remove(stack)
+            if a == nil then a = 0 end
+            if b == nil then b = 0 end
             if tok.value == "+" then table.insert(stack, a + b)
             elseif tok.value == "-" then table.insert(stack, a - b)
             elseif tok.value == "*" then table.insert(stack, a * b)
-            elseif tok.value == "/" then table.insert(stack, a / b)
+            elseif tok.value == "/" then table.insert(stack, (b ~= 0 and a / b) or 0)
             elseif tok.value == "^" then table.insert(stack, a ^ b)
             end
         end
