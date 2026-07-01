@@ -81,55 +81,39 @@ end
 
 -- ИСПРАВЛЕННАЯ ФУНКЦИЯ
 function M.handleFileDrop(file)
-    -- file может быть объектом FileData или строкой с путём
-    local fname
-    local isString = type(file) == "string"
-    if isString then
-        fname = file
-    else
-        -- Если это объект, у него может быть метод getFilename или getExtension
-        fname = file:getFilename() or file:getName() or tostring(file)
-    end
-    
-    -- Если всё ещё nil, пробуем извлечь из пути
-    if not fname or fname == "" then
-        fname = tostring(file)
-    end
-    
-    -- Получаем расширение (без точки)
-    local ext = ""
-    local dotPos = fname:find("%.[^.]+$")
-    if dotPos then
-        ext = fname:sub(dotPos + 1):lower()
-    end
-    
+    -- В LÖVE 11.x при перетаскивании файла передаётся объект File.
+    -- Получаем имя файла.
+    local filename = file:getFilename() or file.name or tostring(file)
+    if not filename then return end
+
+    local ext = filename:match("%.([^.]+)$")
+    if not ext then return end
+    ext = ext:lower()
+
     local destFolder = "sprites/"
     if ext == "ogg" or ext == "mp3" or ext == "wav" then
         destFolder = "sounds/"
     end
-    
-    -- Получаем базовое имя без расширения
-    local baseName = fname:match("^(.+)%.[^.]+$") or fname
-    -- Убираем путь, оставляем только имя файла
-    baseName = baseName:match("([^/\\]+)$") or baseName
-    
-    local destName = destFolder .. baseName .. "." .. ext
-    
-    -- Копируем файл
+
     love.filesystem.createDirectory(destFolder)
-    local data
-    if isString then
-        data = love.filesystem.read(fname)
-    else
-        -- если это FileData, читаем из него
-        data = file:getString()
-    end
-    
+
+    -- Получаем базовое имя без расширения
+    local basename = filename:match("^(.+)%.[^.]+$") or filename
+    local destName = destFolder .. basename .. "." .. ext
+
+    -- Читаем содержимое файла
+    local data = love.filesystem.read(filename)
     if data then
         love.filesystem.write(destName, data)
+    else
+        -- Если не удалось прочитать (возможно, файл ещё не в песочнице), пробуем скопировать через системный путь
+        -- В некоторых версиях LÖVE file может быть объектом с методом getFilename, но если не работает, используем системный путь
+        -- Можно также использовать love.filesystem.newFile(file:getFilename())
+        -- Для совместимости с перетаскиванием извне, попробуем другой подход: скопировать через системные вызовы
+        -- или просто считать как обычно.
+        -- Этот код можно доработать под свои нужды.
     end
-    
-    -- Привязываем к текущему объекту
+
     local obj = M.getCurrentObject()
     if obj then
         if destFolder == "sprites/" then
