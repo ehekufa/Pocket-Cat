@@ -13,8 +13,8 @@ function love.load()
     project.loadDefault()
     blocks.updateWorkspace()
     paint.init()
-    ui.calculateHeights()
     runtime.compileScript()
+    -- ui.calculateHeights() уже вызывается в blocks.updateWorkspace
 end
 
 function love.draw()
@@ -37,8 +37,13 @@ function love.update(dt)
     ui.updateLongPress(dt)
 end
 
--- Обработка мыши / тач
+-- Обработка мыши / тач с блокировкой Paint при открытой клавиатуре
 function love.mousepressed(x, y, button)
+    -- Если клавиатура открыта, обрабатываем только её
+    if state.keyboardVisible then
+        keyboard.handleTouch(x, y)
+        return
+    end
     if paint.handleTouch(x, y, true) then return end
     if keyboard.handleTouch(x, y) then return end
     if ui.handleClick(x, y) then return end
@@ -50,21 +55,28 @@ function love.mousepressed(x, y, button)
 end
 
 function love.mousereleased(x, y, button)
+    if state.keyboardVisible then return end
     blocks.paletteRelease()
     blocks.workspaceRelease()
     runtime.isReleased = true
 end
 
 function love.touchmoved(id, x, y, dx, dy)
+    if state.keyboardVisible then return end
     paint.handleTouch(x, y, true)
     blocks.handleTouchMove(x, y, dx, dy)
 end
 
 function love.touchpressed(id, x, y)
+    if state.keyboardVisible then
+        keyboard.handleTouch(x, y)
+        return
+    end
     love.mousepressed(x, y, 1)
 end
 
 function love.touchreleased(id, x, y)
+    if state.keyboardVisible then return end
     love.mousereleased(x, y, 1)
 end
 
