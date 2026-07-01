@@ -4,7 +4,7 @@ local expr = require("src.expr")
 
 local M = {}
 
--- Сборка обработчиков событий из корневых блоков (без вложенности)
+-- Сборка обработчиков событий из корневых блоков
 function M.compileScript()
     State.eventHandlers = {}
     local ce = nil
@@ -15,20 +15,20 @@ function M.compileScript()
         elseif b.type == "action" and ce then
             table.insert(State.eventHandlers[ce], b)
         elseif b.type == "control" and ce then
-            -- вложенные блоки не обрабатываем как обработчики, они будут выполняться внутри
+            -- вложенные блоки обрабатываются отдельно
         end
     end
 end
 
--- Выполнение списка действий с поддержкой вложенных блоков и выражений
-function M.executeActions(actions, env)
-    env = env or {}
-    local i = 1
-    while i <= #actions and not State.stopAll do
-        local a = actions[i]
-        -- Вычисляем параметр как выражение, если это строка и содержит операторы или переменные
-        local p = a.param
-        if type(p) == "string" and p:match("[%+%-%*/%^%(%)]") then
+-- Вычисление параметра (поддержка чисел и выражений)
+local function computeParam(param, env)
+    if param == nil then return nil end
+    -- Если это уже число, возвращаем как есть
+    if type(param) == "number" then return param end
+    -- Если это строка
+    if type(param) == "string" then
+        -- Если строка содержит операторы, вызываем парсер
+        if param:match("[%+%-%*/%^%(%)]") then
             local ctx = {}
             for k,v in pairs(State.vars) do ctx[k] = v end
             for k,v in pairs(env) do ctx[k] = v end
@@ -39,14 +39,30 @@ function M.executeActions(actions, env)
             ctx["mouseX"] = love.mouse.getX()
             ctx["mouseY"] = love.mouse.getY()
             ctx["size"] = State.objectSize
-            p = expr.evaluate(p, ctx)
+            return expr.evaluate(param, ctx)
+        else
+            -- Если строка — просто число, конвертируем
+            local num = tonumber(param)
+            if num then return num end
+            -- Если не число, оставляем как строку
+            return param
         end
+    end
+    return param
+end
+
+-- Выполнение списка действий
+function M.executeActions(actions, env)
+    env = env or {}
+    local i = 1
+    while i <= #actions and not State.stopAll do
+        local a = actions[i]
+        local p = computeParam(a.param, env)
 
         -- Действия с переменными
         if a.name == "setVar" then
             local varName = a.paramName or "var"
             State.vars[varName] = p
-            table.insert(State.varList, varName)
         elseif a.name == "changeVar" then
             local varName = a.paramName or "var"
             State.vars[varName] = (State.vars[varName] or 0) + (tonumber(p) or 0)
@@ -102,7 +118,7 @@ function M.executeActions(actions, env)
 
         -- Звук
         elseif a.name == "playSound" then
-            local filename = "sounds/" .. p
+            local filename = "sounds/" .. (p or "")
             if love.filesystem.getInfo(filename) then
                 local source = love.audio.newSource(filename, "static")
                 if source then source:play() end
