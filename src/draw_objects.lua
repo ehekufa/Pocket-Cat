@@ -20,14 +20,27 @@ function M.drawSceneObjects()
     if State.showImage then
         local obj = project.getCurrentObject()
         if obj and obj.image then
+            -- Если изображение ещё не загружено или изменилось, загружаем
             if not obj.loadedImage then
-                local file = love.filesystem.newFile(obj.image)
-                if file then obj.loadedImage = love.graphics.newImage(file) end
+                local imgData = love.filesystem.read(obj.image)
+                if imgData then
+                    obj.loadedImage = love.graphics.newImage(imgData)
+                else
+                    -- Возможно, файл не найден, пробуем как файл в физической файловой системе (для отладки)
+                    -- Но обычно всё должно быть внутри .love
+                    -- Можно попробовать создать ImageData из файла через love.image.newImageData
+                    local imgData2 = love.image.newImageData(obj.image)
+                    if imgData2 then
+                        obj.loadedImage = love.graphics.newImage(imgData2)
+                    end
+                end
             end
             if obj.loadedImage then
                 love.graphics.setColor(1,1,1)
+                local w, h = obj.loadedImage:getDimensions()
+                local scale = State.objectSize / 32  -- масштабируем относительно базового размера 32
                 love.graphics.draw(obj.loadedImage, State.cubeX, State.cubeY,
-                    math.rad(State.objectAngle), State.objectSize/32, State.objectSize/32, 16, 16)
+                    math.rad(State.objectAngle), scale, scale, w/2, h/2)
             end
         end
     end
