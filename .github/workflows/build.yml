@@ -8,7 +8,7 @@ jobs:
   # ---------- Android Release ----------
   build-android-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -57,18 +57,21 @@ jobs:
             ~/.gradle/wrapper
           key: gradle-v2
 
-      # ---- Настройка Gradle для увеличения памяти и отключения лишних задач ----
-      - name: Configure Gradle
+      - name: Configure Gradle (memory + optimizations)
         run: |
-          echo "org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=512m" >> love-android/gradle.properties
+          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m" >> love-android/gradle.properties
           echo "org.gradle.daemon=false" >> love-android/gradle.properties
           echo "org.gradle.parallel=false" >> love-android/gradle.properties
           echo "org.gradle.caching=true" >> love-android/gradle.properties
           echo "android.enableJetifier=false" >> love-android/gradle.properties
           echo "android.useAndroidX=true" >> love-android/gradle.properties
+          echo "android.enableR8.fullMode=true" >> love-android/gradle.properties
+          echo "android.defaults.buildfeatures.strip=true" >> love-android/gradle.properties
 
-      - name: Package game.love
-        run: zip -9 -r game.love . -x "*.git*" -x ".github/*" -x "love-android/*" -x "*.yml"
+      - name: Package game.love (with exclusions)
+        run: |
+          zip -9 -r game.love . -x "*.git*" -x ".github/*" -x "love-android/*" -x "*.yml" -x "README.md" -x ".gitignore" -x "LICENSE" -x "*.psd" -x "*.xcf" -x "sounds/*" -x "sprites/*.png" 2>/dev/null || true
+          # Если есть PNG, можно сжать позже, но пока просто упаковываем
 
       - name: Embed game
         run: |
@@ -76,20 +79,15 @@ jobs:
           cp game.love love-android/app/src/embed/assets/game.love
           ls -la love-android/app/src/embed/assets/
 
-      - name: Force arm64 (remove other ABIs) and disable debug metadata
+      - name: Force arm64 only
         run: |
-          # Удаляем старые abiFilters, добавляем только arm64-v8a
           sed -i '/abiFilters/d' love-android/app/build.gradle
           sed -i '/defaultConfig {/a\        ndk { abiFilters "arm64-v8a" }' love-android/app/build.gradle
-          # Отключаем генерацию native debug metadata для релиза
-          sed -i '/buildTypes {/a\            release {\n                debuggable false\n                jniDebuggable false\n                packagingOptions {\n                    doNotStrip "**/*.so"\n                }\n            }' love-android/app/build.gradle
 
-      # ---------- Подпись релизной сборки ----------
       - name: Create keystore (if no secrets)
         id: create_keystore
         run: |
           if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "Generating temporary keystore..."
             keytool -genkey -v -keystore release.keystore -alias pocketcat -keyalg RSA -keysize 2048 \
               -validity 10000 -dname "CN=PocketCat, OU=Dev, O=Dev, L=City, S=State, C=RU" \
               -storepass pocketcat -keypass pocketcat
@@ -104,7 +102,7 @@ jobs:
             echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
           fi
 
-      - name: Configure signing in build.gradle
+      - name: Configure signing and optimizations in build.gradle
         run: |
           cat << EOF >> love-android/app/build.gradle
           android {
@@ -119,19 +117,20 @@ jobs:
               buildTypes {
                   release {
                       signingConfig signingConfigs.release
-                      minifyEnabled false
+                      minifyEnabled true
+                      shrinkResources true
                       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+                      debuggable false
+                      jniDebuggable false
                   }
               }
           }
           EOF
 
-      # ---- Сборка только нужного варианта (embedNoRecordRelease) ----
       - name: Build Release APK
         working-directory: love-android
-        run: ./gradlew assembleEmbedNoRecordRelease --no-daemon --parallel --console=plain --max-workers=2
+        run: ./gradlew assembleEmbedNoRecordRelease --no-daemon --console=plain --max-workers=2
 
-      # ---- Поиск и копирование APK ----
       - name: Collect APK
         run: |
           APK_FILE=$(find love-android/app/build/outputs -name "*.apk" | head -n 1)
@@ -151,38 +150,28 @@ jobs:
           path: PocketCat_Release.apk
           compression-level: 0
 
-  # ---------- Windows Portable (упрощён, без Wine) ----------
+  # ---------- Windows Portable (упрощён) ----------
   build-windows-portable:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Package game.love
-        run: zip -9 -r game.love . -x "*.git*" -x ".github/*" -x "love-android/*" -x "*.yml"
+        run: zip -9 -r game.love . -x "*.git*" -x ".github/*" -x "love-android/*" -x "*.yml" -x "README.md" -x ".gitignore"
       - name: Download LÖVE Windows 64-bit
         run: |
           wget -O love-windows.zip "https://github.com/love2d/love/releases/download/11.5/love-11.5-win64.zip"
           unzip love-windows.zip -d love-windows
-      - name: Download LÖVE Windows 32-bit
-        run: |
-          wget -O love-windows32.zip "https://github.com/love2d/love/releases/download/11.5/love-11.5-win32.zip"
-          unzip love-windows32.zip -d love-windows32
       - name: Create Portable EXE (64-bit)
         run: |
           mkdir -p dist/PocketCat64
           cp love-windows/love-11.5-win64/* dist/PocketCat64/
           cat game.love >> dist/PocketCat64/love.exe
           mv dist/PocketCat64/love.exe dist/PocketCat64/PocketCat.exe
-      - name: Create Portable EXE (32-bit)
-        run: |
-          mkdir -p dist/PocketCat32
-          cp love-windows32/love-11.5-win32/* dist/PocketCat32/
-          cat game.love >> dist/PocketCat32/love.exe
-          mv dist/PocketCat32/love.exe dist/PocketCat32/PocketCat32.exe
       - name: Create ZIP archive
         run: |
           cd dist
-          zip -9 -r ../PocketCat_Windows_Portable.zip PocketCat64/ PocketCat32/
+          zip -9 -r ../PocketCat_Windows_Portable.zip PocketCat64/
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
