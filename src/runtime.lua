@@ -20,18 +20,18 @@ function M.compileScript()
     end
 end
 
--- Вычисление параметра (поддержка чисел и выражений)
+-- Безопасное вычисление параметра (число, строка, выражение)
 local function computeParam(param, env)
     if param == nil then return nil end
-    -- Если это уже число, возвращаем как есть
     if type(param) == "number" then return param end
-    -- Если это строка
     if type(param) == "string" then
-        -- Если строка содержит операторы, вызываем парсер
+        -- Если строка пустая, возвращаем nil
+        if param == "" then return nil end
+        -- Если строка содержит операторы (+ - * / ^ ( )), вычисляем как выражение
         if param:match("[%+%-%*/%^%(%)]") then
             local ctx = {}
-            for k,v in pairs(State.vars) do ctx[k] = v end
-            for k,v in pairs(env) do ctx[k] = v end
+            for k, v in pairs(State.vars) do ctx[k] = v end
+            for k, v in pairs(env) do ctx[k] = v end
             ctx["x"] = State.cubeX
             ctx["y"] = State.cubeY
             ctx["angle"] = State.objectAngle
@@ -39,12 +39,18 @@ local function computeParam(param, env)
             ctx["mouseX"] = love.mouse.getX()
             ctx["mouseY"] = love.mouse.getY()
             ctx["size"] = State.objectSize
-            return expr.evaluate(param, ctx)
+            -- Защита от ошибок вычисления
+            local success, result = pcall(expr.evaluate, param, ctx)
+            if success then
+                return result
+            else
+                print("Expression error:", param, result)
+                return nil
+            end
         else
-            -- Если строка — просто число, конвертируем
+            -- Простое число или текст
             local num = tonumber(param)
             if num then return num end
-            -- Если не число, оставляем как строку
             return param
         end
     end
@@ -72,15 +78,20 @@ function M.executeActions(actions, env)
 
         -- Движение
         elseif a.name == "changeX" then
-            State.cubeX = State.cubeX + (tonumber(p) or 10)
+            local delta = tonumber(p)
+            if delta then State.cubeX = State.cubeX + delta end
         elseif a.name == "changeY" then
-            State.cubeY = State.cubeY + (tonumber(p) or 10)
+            local delta = tonumber(p)
+            if delta then State.cubeY = State.cubeY + delta end
         elseif a.name == "setX" then
-            State.cubeX = tonumber(p) or 200
+            local val = tonumber(p)
+            if val then State.cubeX = val end
         elseif a.name == "setY" then
-            State.cubeY = tonumber(p) or 200
+            local val = tonumber(p)
+            if val then State.cubeY = val end
         elseif a.name == "turn" then
-            State.objectAngle = State.objectAngle + (tonumber(p) or 15)
+            local val = tonumber(p)
+            if val then State.objectAngle = State.objectAngle + val end
 
         -- Внешний вид
         elseif a.name == "showCube" then
@@ -99,7 +110,8 @@ function M.executeActions(actions, env)
             elseif p == "blue" then State.objectColor = {0.2,0.4,1.0}
             end
         elseif a.name == "setSize" then
-            State.objectSize = tonumber(p) or 50
+            local val = tonumber(p)
+            if val then State.objectSize = val end
 
         -- Перо
         elseif a.name == "penDown" then
@@ -114,7 +126,8 @@ function M.executeActions(actions, env)
             elseif p == "blue" then State.penColor = {0.2,0.4,1.0}
             end
         elseif a.name == "penSize" then
-            State.penSize = tonumber(p) or 2
+            local val = tonumber(p)
+            if val then State.penSize = val end
 
         -- Звук
         elseif a.name == "playSound" then
@@ -126,7 +139,8 @@ function M.executeActions(actions, env)
 
         -- Управление
         elseif a.name == "wait" then
-            State.waitTimer = tonumber(p) or 1
+            local val = tonumber(p)
+            if val then State.waitTimer = val end
             return true
         elseif a.name == "ifTap" then
             if not State.isTapped then return true end
@@ -138,20 +152,20 @@ function M.executeActions(actions, env)
         elseif a.name == "printText" then
             table.insert(State.messages, tostring(p or "Hello!"))
         elseif a.name == "mouseX" then
-            table.insert(State.messages, "mouse X: "..love.mouse.getX())
+            table.insert(State.messages, "mouse X: " .. love.mouse.getX())
         elseif a.name == "mouseY" then
-            table.insert(State.messages, "mouse Y: "..love.mouse.getY())
+            table.insert(State.messages, "mouse Y: " .. love.mouse.getY())
         elseif a.name == "touchX" then
             local touches = love.touch.getTouches()
             if touches[1] then
-                table.insert(State.messages, "touch X: "..love.touch.getPosition(touches[1]))
+                table.insert(State.messages, "touch X: " .. love.touch.getPosition(touches[1]))
             else
                 table.insert(State.messages, "no touch")
             end
         elseif a.name == "touchY" then
             local touches = love.touch.getTouches()
             if touches[1] then
-                table.insert(State.messages, "touch Y: "..select(2, love.touch.getPosition(touches[1])))
+                table.insert(State.messages, "touch Y: " .. select(2, love.touch.getPosition(touches[1])))
             else
                 table.insert(State.messages, "no touch")
             end
