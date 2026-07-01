@@ -38,127 +38,104 @@ function M.loadDefault()
     blocks.updateWorkspace()
 end
 
+-- Сохранение .cat с указанным именем
+function M.saveProject(filename)
+    if not filename or filename == "" then
+        filename = "project.cat"
+    end
+    if not filename:match("%.cat$") then
+        filename = filename .. ".cat"
+    end
+    local json = utils.json.encode(State.project)
+    love.filesystem.write(filename, json)
+    table.insert(State.messages, "Project saved as " .. filename)
+    return true
+end
+
+-- Загрузка .cat по имени
 function M.loadProject(filename)
     local info = love.filesystem.getInfo(filename)
-    if not info then return nil end
+    if not info then
+        table.insert(State.messages, "File not found: " .. filename)
+        return nil
+    end
     local contents = love.filesystem.read(filename)
+    if not contents then
+        table.insert(State.messages, "Failed to read " .. filename)
+        return nil
+    end
     local data = utils.json.decode(contents)
     if data then
         State.project = data
         blocks.updateWorkspace()
         require("src.runtime").compileScript()
+        table.insert(State.messages, "Project loaded from " .. filename)
         return data
-    end
-    return nil
-end
-
-function M.saveProject(filename)
-    local data = State.project
-    local json = utils.json.encode(data)
-    love.filesystem.write(filename, json)
-end
-
-function M.addScene()
-    local newIdx = #State.project.scenes + 1
-    table.insert(State.project.scenes, {
-        name = "Scene " .. newIdx,
-        bgColor = {0.2,0.2,0.4},
-        objects = {{ name = "Object 1", image = nil, blocks = {} }}
-    })
-    State.currentSceneIdx = newIdx
-    State.currentObjectIdx = 1
-    blocks.updateWorkspace()
-end
-
-function M.addObject()
-    local scene = M.getCurrentScene()
-    if not scene then return end
-    local newIdx = #scene.objects + 1
-    table.insert(scene.objects, { name = "Object " .. newIdx, image = nil, blocks = {} })
-    State.currentObjectIdx = newIdx
-    blocks.updateWorkspace()
-end
-
--- ============================================================
--- ИСПРАВЛЕННАЯ ФУНКЦИЯ handleFileDrop
--- Теперь работает с любыми файлами (PNG, JPG, OGG, MP3, WAV)
--- ============================================================
-function M.handleFileDrop(file)
-    -- file может быть строкой (путь) или объектом File (в LÖVE 11)
-    local fname
-    if type(file) == "string" then
-        fname = file
-    elseif type(file) == "table" and file.name then
-        fname = file.name
     else
-        print("Unknown file type")
-        return
+        table.insert(State.messages, "Invalid project file")
+        return nil
     end
+end
 
-    -- Извлекаем расширение и имя без пути
+-- Получить список всех .cat файлов в папке проекта
+function M.getProjectFiles()
+    local files = {}
+    local items = love.filesystem.getDirectoryItems(".")
+    for _, item in ipairs(items) do
+        if item:match("%.cat$") then
+            table.insert(files, item)
+        end
+    end
+    return files
+end
+
+-- Удалить .cat файл (опционально)
+function M.deleteProjectFile(filename)
+    if love.filesystem.getInfo(filename) then
+        love.filesystem.remove(filename)
+        table.insert(State.messages, "Deleted " .. filename)
+        return true
+    end
+    return false
+end
+
+-- Обработка перетаскивания файлов
+function M.handleFileDrop(file)
+    local fname = type(file) == "string" and file or (file.name or "")
+    if fname == "" then return end
     local ext = fname:match("%.([^.]+)$")
-    if not ext then
-        print("No extension")
-        return
-    end
+    if not ext then return end
     ext = ext:lower()
-
-    -- Определяем папку назначения
     local destFolder = "sprites/"
     if ext == "ogg" or ext == "mp3" or ext == "wav" then
         destFolder = "sounds/"
     elseif ext == "png" or ext == "jpg" or ext == "jpeg" or ext == "gif" then
         destFolder = "sprites/"
     else
-        print("Unsupported file type: " .. ext)
         return
     end
-
-    -- Создаём папку, если её нет
     love.filesystem.createDirectory(destFolder)
-
-    -- Получаем имя файла без пути (базовое имя)
     local baseName = fname:match("([^/\\]+)$") or fname
     local destName = destFolder .. baseName
-
-    -- Читаем исходный файл (если он ещё не в love.filesystem)
-    -- В LÖVE файлы, перетащенные в окно, доступны через love.filesystem
     local data
     if love.filesystem.getInfo(fname) then
         data = love.filesystem.read(fname)
-    else
-        -- Если файл не найден в sandbox, пытаемся прочитать как обычный файл (только если разрешено)
-        -- В LÖVE 11.4+ есть love.filesystem.newFile, но для простоты используем стандартный путь
-        -- В GitHub Actions или настольных версиях можно использовать io.open, но это небезопасно
-        -- Лучше использовать love.filesystem, если файл уже в проекте
-        print("File not found in love.filesystem: " .. fname)
-        return
     end
-
     if data then
         love.filesystem.write(destName, data)
-        print("Copied to: " .. destName)
-    else
-        print("Failed to read file")
-        return
-    end
-
-    -- Если это спрайт, прикрепляем его к текущему объекту
-    if destFolder == "sprites/" then
-        local obj = M.getCurrentObject()
-        if obj then
-            obj.image = destName
-            -- Сбрасываем загруженное изображение, чтобы оно перезагрузилось
-            obj.loadedImage = nil
-            print("Sprite set: " .. destName)
-        else
-            print("No current object")
-        end
-    elseif destFolder == "sounds/" then
-        local obj = M.getCurrentObject()
-        if obj then
-            obj.sound = destName
-            print("Sound set: " .. destName)
+        if destFolder == "sprites/" then
+            local obj = M.getCurrentObject()
+            if obj then
+                obj.image = destName
+                obj.loadedImage = nil
+                table.insert(State.messages, "Sprite imported: " .. baseName)
+            end
+        elseif destFolder == "sounds/" then
+            local obj = M.getCurrentObject()
+            if obj then
+                obj.sound = destName
+                table.insert(State.messages, "Sound imported: " .. baseName)
+            end
         end
     end
 end
