@@ -23,8 +23,8 @@ function M.handleKeyPressed(key)
         return
     end
 
-    -- Ctrl+V (вставка из буфера обмена)
-    if key == "v" and love.keyboard.isDown("ctrl") then
+    -- Ctrl+V (вставка из буфера обмена) - используем lctrl или rctrl
+    if key == "v" and (love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")) then
         local clip = love.system.getClipboardText()
         if clip then
             State.editingText = State.editingText .. clip
