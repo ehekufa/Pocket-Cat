@@ -1,6 +1,5 @@
 -- src/runtime.lua
 local State = require("src.state")
-local expr = require("src.expr")
 local firebase = require("src.firebase")
 
 local M = {}
@@ -20,30 +19,16 @@ function M.compileScript()
     end
 end
 
+-- Безопасное получение параметра (строка или число)
 local function computeParam(param, env)
     if param == nil then return nil end
     if type(param) == "number" then return param end
     if type(param) == "string" then
         if param == "" then return nil end
-        if param:match("[%+%-%*/%^%(%)]") then
-            local ctx = {}
-            for k, v in pairs(State.vars) do ctx[k] = v end
-            for k, v in pairs(env) do ctx[k] = v end
-            ctx["x"] = State.cubeX
-            ctx["y"] = State.cubeY
-            ctx["angle"] = State.objectAngle
-            ctx["time"] = love.timer.getTime()
-            ctx["mouseX"] = love.mouse.getX()
-            ctx["mouseY"] = love.mouse.getY()
-            ctx["size"] = State.objectSize
-            local success, result = pcall(expr.evaluate, param, ctx)
-            if success then return result end
-            return nil
-        else
-            local num = tonumber(param)
-            if num then return num end
-            return param
-        end
+        -- Пробуем преобразовать в число
+        local num = tonumber(param)
+        if num then return num end
+        return param
     end
     return param
 end
@@ -160,7 +145,7 @@ function M.executeActions(actions, env)
                 table.insert(State.messages, "no touch")
             end
 
-        -- === БЛОКИ FIREBASE (с полным URL) ===
+        -- Firebase блоки
         elseif a.name == "firebaseGet" then
             local url = tostring(p or "")
             if url and url ~= "" then
