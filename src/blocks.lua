@@ -146,11 +146,10 @@ function M.paletteRelease()
     end
 end
 
--- Клик по рабочей области (запоминаем блок для долгого нажатия)
+-- Клик по рабочей области – открываем редактирование параметра
 function M.workspaceClick(x, y)
     local idx = nil
     local currentY = State.workspaceStartY - State.workspaceScrollY
-    -- Ищем блок в корневом списке (без учёта вложенности для простоты)
     for i, b in ipairs(State.workspaceBlocks) do
         local bx = State.workspaceStartX
         if x >= bx and x <= bx+State.blockWidth and y >= currentY and y <= currentY+State.blockHeight then
@@ -158,30 +157,24 @@ function M.workspaceClick(x, y)
             break
         end
         currentY = currentY + State.blockHeight + State.blockSpacing
-        -- Пропускаем вложенные (упрощённо)
     end
     if idx then
-        State.longPressBlockIdx = idx
-        State.longPressStartTime = love.timer.getTime()
-        State.longPressMoved = false
-        State.dragSourceParent = nil
-        State.dragSourceIndex = nil
+        -- Отменяем долгое нажатие
+        State.longPressBlockIdx = nil
+        local block = State.workspaceBlocks[idx]
+        if block.param ~= nil then
+            State.editingBlock = block
+            State.editingText = tostring(block.param or "")
+            -- Включаем системный ввод (на мобилках появится клавиатура)
+            love.keyboard.setTextInput(true)
+            table.insert(State.messages, "Editing parameter... Press Enter to confirm, Esc to cancel")
+        else
+            table.insert(State.messages, "This block has no editable parameter")
+        end
     end
 end
 
 function M.workspaceRelease()
-    if State.longPressBlockIdx and not State.longPressMoved then
-        local elapsed = love.timer.getTime() - State.longPressStartTime
-        if elapsed < 0.5 then
-            -- Короткое нажатие → открываем редактирование параметра
-            local block = State.workspaceBlocks[State.longPressBlockIdx]
-            State.editingBlock = block
-            State.editingText = tostring(block.param or "")
-            State.keyboardVisible = true
-            State.keyboardMode = "digits"  -- или "en", по желанию
-        end
-        State.longPressBlockIdx = nil
-    end
     -- Перетаскивание (если было)
     if State.draggingBlock then
         table.insert(State.workspaceBlocks, State.draggingBlock)
@@ -256,7 +249,6 @@ function M.pasteBlock()
     end
 end
 
--- Удаление блока (вызывается из ui.updateLongPress)
 function M.deleteBlockByIndex(idx)
     if idx and idx >= 1 and idx <= #State.workspaceBlocks then
         table.remove(State.workspaceBlocks, idx)
@@ -264,7 +256,7 @@ function M.deleteBlockByIndex(idx)
         require("src.runtime").compileScript()
         State.editingBlock = nil
         State.editingText = ""
-        State.keyboardVisible = false
+        love.keyboard.setTextInput(false)
         return true
     end
     return false
