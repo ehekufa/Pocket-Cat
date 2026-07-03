@@ -1,7 +1,6 @@
 -- src/keyboard.lua
 local State = require("src.state")
 local project = require("src.project")
-local blocks = require("src.blocks")
 
 local M = {}
 
@@ -17,10 +16,19 @@ function M.handleTextInput(t)
     end
 end
 
--- Обработка нажатий клавиш (Enter, Esc, Backspace)
+-- Обработка нажатий клавиш (Enter, Esc, Backspace, Ctrl+V)
 function M.handleKeyPressed(key)
     -- Если не в режиме редактирования – выходим
     if not State.editingBlock and not State.inputMode then
+        return
+    end
+
+    -- Ctrl+V (вставка из буфера обмена)
+    if key == "v" and love.keyboard.isDown("ctrl") then
+        local clip = love.system.getClipboardText()
+        if clip then
+            State.editingText = State.editingText .. clip
+        end
         return
     end
 
