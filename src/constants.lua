@@ -11,7 +11,8 @@ M.catColors = {
     draw = {0.2,0.8,0.8},
     text = {1.0,1.0,1.0},
     sensing = {0.7,0.7,0.7},
-    pen = {0.2,1.0,0.4}
+    pen = {0.2,1.0,0.4},
+    cloud = {0.2,0.6,1.0}   -- цвет для облачных блоков
 }
 
 M.paletteBlocks = {
@@ -42,7 +43,7 @@ M.paletteBlocks = {
     {type="action", name="penSize", label="pen size", param=2, category="pen"},
     -- Sound
     {type="action", name="playSound", label="play sound", param="", category="sound"},
-    -- Control (вложенные)
+    -- Control
     {type="control", name="repeat", label="repeat", param=3, category="control"},
     {type="control", name="forever", label="forever", category="control"},
     {type="control", name="if", label="if", param="", category="control"},
@@ -57,7 +58,10 @@ M.paletteBlocks = {
     {type="action", name="mouseX", label="mouse X", category="sensing"},
     {type="action", name="mouseY", label="mouse Y", category="sensing"},
     {type="action", name="touchX", label="touch X", category="sensing"},
-    {type="action", name="touchY", label="touch Y", category="sensing"}
+    {type="action", name="touchY", label="touch Y", category="sensing"},
+    -- Cloud (Firebase)
+    {type="action", name="firebaseGet", label="firebase get", param="path", category="cloud"},
+    {type="action", name="firebasePut", label="firebase put", param="path|value", category="cloud"},
 }
 
 return M
