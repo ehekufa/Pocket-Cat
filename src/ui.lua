@@ -63,12 +63,12 @@ function M.drawButtons()
     State.runButton = {x = rx, y = 15, r = 22}
 
     local btnY = 50
-    -- Save .cat with name
+    -- Save .cat
     love.graphics.setColor(0.2,0.5,1.0)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
     love.graphics.print("Save .cat", love.graphics.getWidth()-145, btnY+8)
     btnY = btnY + 35
-    -- Load .cat from list
+    -- Load .cat
     love.graphics.setColor(0.2,0.5,1.0)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
     love.graphics.print("Load .cat", love.graphics.getWidth()-145, btnY+8)
@@ -98,7 +98,7 @@ function M.drawMessages()
 end
 
 function M.handleClick(x, y)
-    -- Вкладки сцен и объектов (без изменений)
+    -- Вкладки сцен и объектов
     if y <= 60 then
         if y >= 5 and y <= 30 then
             local sx = 70
@@ -159,54 +159,22 @@ function M.handleClick(x, y)
         local btnY = 50
         -- Save .cat
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            -- Открываем клавиатуру для ввода имени файла
-            State.editingBlock = nil
+            -- Начинаем системный ввод для имени файла
+            State.inputMode = "save"
+            State.editingBlock = nil  -- чтобы не путать с параметром
             State.editingText = ""
-            State.keyboardVisible = true
-            State.keyboardMode = "digits"
-            State.saveFileName = true  -- флаг, что мы вводим имя для сохранения
-            -- Временно сохраняем колбэк: при нажатии Done сохраним
-            State.saveCallback = function(name)
-                if name and name ~= "" then
-                    project.saveProject(name)
-                else
-                    table.insert(State.messages, "Canceled")
-                end
-                State.saveFileName = false
-                State.saveCallback = nil
-            end
+            love.keyboard.setTextInput(true)
+            table.insert(State.messages, "Enter filename (without .cat):")
             return true
         end
         btnY = btnY + 35
-        -- Load .cat (показываем список)
+        -- Load .cat
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            local files = project.getProjectFiles()
-            if #files == 0 then
-                table.insert(State.messages, "No .cat files found")
-                return true
-            end
-            -- Показываем список в сообщениях (временно)
-            local msg = "Files: "
-            for i, f in ipairs(files) do
-                msg = msg .. f .. (i < #files and ", " or "")
-            end
-            table.insert(State.messages, msg)
-            -- Здесь можно было бы реализовать выбор через клавиатуру, но для простоты предлагаем ввести имя
+            State.inputMode = "load"
             State.editingBlock = nil
             State.editingText = ""
-            State.keyboardVisible = true
-            State.keyboardMode = "digits"
-            State.loadFileName = true
-            State.loadCallback = function(name)
-                if name and name ~= "" then
-                    local fullName = name:match("%.cat$") and name or name..".cat"
-                    project.loadProject(fullName)
-                else
-                    table.insert(State.messages, "Canceled")
-                end
-                State.loadFileName = false
-                State.loadCallback = nil
-            end
+            love.keyboard.setTextInput(true)
+            table.insert(State.messages, "Enter filename to load (with .cat):")
             return true
         end
         btnY = btnY + 35
@@ -238,7 +206,7 @@ function M.updateLongPress(dt)
             State.longPressBlockIdx = nil
             State.editingBlock = nil
             State.editingText = ""
-            State.keyboardVisible = false
+            love.keyboard.setTextInput(false)
             table.insert(State.messages, "Block deleted")
         end
     end
