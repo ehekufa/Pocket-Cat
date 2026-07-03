@@ -28,9 +28,7 @@ function M.updatePos()
 end
 
 function M.drawKeyboard()
-    if not State.keyboardVisible then
-        return
-    end
+    if not State.keyboardVisible then return end
     M.updatePos()
     local kx, ky = State.keyboardPosX, State.keyboardPosY
     local keys = (State.keyboardMode == "digits" and M.digitsKeys or M.abcKeys)
@@ -43,18 +41,17 @@ function M.drawKeyboard()
     love.graphics.rectangle("fill", kx, ky, kw, kh, 10)
 
     local inputY = ky + 10
-    local inputW = kw - 80
+    local inputW = kw - 160  -- чуть больше места для кнопок
     love.graphics.setColor(0.2, 0.2, 0.2)
     love.graphics.rectangle("fill", kx + 10, inputY, inputW, 30, 5)
     love.graphics.setColor(1, 1, 1)
     love.graphics.rectangle("line", kx + 10, inputY, inputW, 30, 5)
     love.graphics.setColor(1, 1, 1)
     local displayText = State.editingText or ""
-    if #displayText > 20 then
-        displayText = displayText:sub(1, 20) .. "…"
-    end
+    if #displayText > 20 then displayText = displayText:sub(1, 20) .. "…" end
     love.graphics.print(utils.safeUTF8(displayText), kx + 15, inputY + 8)
 
+    -- Кнопка Done
     local doneX = kx + 10 + inputW + 10
     love.graphics.setColor(0.2, 0.6, 0.2)
     love.graphics.rectangle("fill", doneX, inputY, 60, 30, 5)
@@ -62,6 +59,17 @@ function M.drawKeyboard()
     love.graphics.printf("Done", doneX, inputY + 8, 60, "center")
     State.keyboardDoneButton = {x = doneX, y = inputY, w = 60, h = 30}
 
+    -- Кнопка Paste (вставка из буфера)
+    local pasteX = doneX + 70
+    if pasteX + 60 < kx + kw then
+        love.graphics.setColor(0.4, 0.4, 0.8)
+        love.graphics.rectangle("fill", pasteX, inputY, 60, 30, 5)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.printf("Paste", pasteX, inputY + 8, 60, "center")
+        State.keyboardPasteButton = {x = pasteX, y = inputY, w = 60, h = 30}
+    end
+
+    -- Клавиши
     local keyStartY = ky + 60
     for i, row in ipairs(keys) do
         for j, char in ipairs(row) do
@@ -75,6 +83,7 @@ function M.drawKeyboard()
         end
     end
 
+    -- Нижняя панель: Back, ABC/123
     local bottomY = keyStartY + rows * (State.keyH + State.keySpacing) + 10
     local backW, abcW, gap = 70, 70, 20
     local totalBottomW = backW + gap + abcW
@@ -94,6 +103,7 @@ function M.drawKeyboard()
     love.graphics.printf(modeLabel, abcX, bottomY + 8, abcW, "center")
     State.keyboardModeButton = {x = abcX, y = bottomY, w = abcW, h = 30}
 
+    -- Кнопка закрытия (X) справа сверху
     local closeX = kx + kw + 5
     local closeY = ky - 10
     love.graphics.setColor(1, 0, 0)
@@ -104,9 +114,7 @@ function M.drawKeyboard()
 end
 
 function M.handleTouch(x, y)
-    if not State.keyboardVisible then
-        return false
-    end
+    if not State.keyboardVisible then return false end
 
     local kx, ky = State.keyboardPosX, State.keyboardPosY
     local keys = (State.keyboardMode == "digits" and M.digitsKeys or M.abcKeys)
@@ -115,6 +123,7 @@ function M.handleTouch(x, y)
     local kw = cols * (State.keyW + State.keySpacing) + State.keySpacing
     local keyStartY = ky + 60
 
+    -- Закрытие
     if State.keyboardCloseButton then
         local cb = State.keyboardCloseButton
         if x >= cb.x and x <= cb.x + cb.w and y >= cb.y and y <= cb.y + cb.h then
@@ -126,6 +135,7 @@ function M.handleTouch(x, y)
         end
     end
 
+    -- Done
     if State.keyboardDoneButton then
         local db = State.keyboardDoneButton
         if x >= db.x and x <= db.x + db.w and y >= db.y and y <= db.y + db.h then
@@ -142,6 +152,19 @@ function M.handleTouch(x, y)
         end
     end
 
+    -- Paste
+    if State.keyboardPasteButton then
+        local pb = State.keyboardPasteButton
+        if x >= pb.x and x <= pb.x + pb.w and y >= pb.y and y <= pb.y + pb.h then
+            local clip = love.system.getClipboardText()
+            if clip then
+                State.editingText = State.editingText .. clip
+            end
+            return true
+        end
+    end
+
+    -- Back
     if State.keyboardBackButton then
         local bb = State.keyboardBackButton
         if x >= bb.x and x <= bb.x + bb.w and y >= bb.y and y <= bb.y + bb.h then
@@ -150,18 +173,17 @@ function M.handleTouch(x, y)
         end
     end
 
+    -- Переключение режима
     if State.keyboardModeButton then
         local mb = State.keyboardModeButton
         if x >= mb.x and x <= mb.x + mb.w and y >= mb.y and y <= mb.y + mb.h then
-            if State.keyboardMode == "digits" then
-                State.keyboardMode = "abc"
-            else
-                State.keyboardMode = "digits"
-            end
+            if State.keyboardMode == "digits" then State.keyboardMode = "abc"
+            else State.keyboardMode = "digits" end
             return true
         end
     end
 
+    -- Клавиши
     for i, row in ipairs(keys) do
         for j, char in ipairs(row) do
             local bx = kx + State.keySpacing + (j - 1) * (State.keyW + State.keySpacing)
@@ -173,6 +195,7 @@ function M.handleTouch(x, y)
         end
     end
 
+    -- Клик вне клавиатуры закрывает её
     if y < ky then
         State.keyboardVisible = false
         State.editingBlock = nil
@@ -189,6 +212,7 @@ function M.clearButtons()
     State.keyboardDoneButton = nil
     State.keyboardBackButton = nil
     State.keyboardModeButton = nil
+    State.keyboardPasteButton = nil
 end
 
 function M.textInput(t)
@@ -215,6 +239,9 @@ function M.keyPressed(key)
             M.clearButtons()
         elseif key == "backspace" then
             State.editingText = State.editingText:sub(1, -2)
+        elseif key == "v" and love.keyboard.isDown("ctrl") then
+            local clip = love.system.getClipboardText()
+            if clip then State.editingText = State.editingText .. clip end
         end
     else
         if key == "f5" then
