@@ -70,6 +70,48 @@ function M.drawWorkspace()
     love.graphics.setColor(1,1,1)
     love.graphics.print("Workspace", State.workspaceStartX, 10 - State.workspaceScrollY)
     M.drawBlockTree(State.workspaceBlocks, State.workspaceStartX, State.workspaceStartY, 0, State.workspaceScrollY)
+    
+    -- === ОТОБРАЖЕНИЕ ВВОДИМОГО ТЕКСТА ===
+    if State.editingBlock or State.inputMode then
+        -- Рисуем поле ввода поверх рабочей области
+        local bx = State.workspaceStartX + 50
+        local by = love.graphics.getHeight() / 2 - 30
+        local bw = 400
+        local bh = 40
+        
+        -- Фон
+        love.graphics.setColor(0, 0, 0, 0.85)
+        love.graphics.rectangle("fill", bx - 20, by - 40, bw + 40, bh + 80, 10)
+        
+        -- Заголовок
+        love.graphics.setColor(1, 1, 1)
+        if State.editingBlock then
+            love.graphics.print("Editing parameter:", bx, by - 30)
+        elseif State.inputMode == "save" then
+            love.graphics.print("Save as:", bx, by - 30)
+        elseif State.inputMode == "load" then
+            love.graphics.print("Load file:", bx, by - 30)
+        end
+        
+        -- Поле ввода
+        love.graphics.setColor(0.2, 0.2, 0.2)
+        love.graphics.rectangle("fill", bx, by, bw, bh, 5)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.rectangle("line", bx, by, bw, bh, 5)
+        
+        -- Текст в поле
+        love.graphics.setColor(0.8, 0.8, 0.8)
+        local displayText = State.editingText or ""
+        if #displayText > 30 then
+            displayText = displayText:sub(1, 30) .. "…"
+        end
+        love.graphics.print(displayText, bx + 10, by + 12)
+        
+        -- Подсказка
+        love.graphics.setColor(0.6, 0.6, 0.6)
+        love.graphics.print("Enter - confirm, Esc - cancel", bx, by + bh + 10)
+    end
+    
     if State.draggingBlock then
         local mx, my = love.mouse.getPosition()
         M.drawBlock(State.draggingBlock, mx-State.blockWidth/2, my-State.blockHeight/2, true, false)
@@ -148,6 +190,11 @@ end
 
 -- Клик по рабочей области – открываем редактирование параметра
 function M.workspaceClick(x, y)
+    -- Если уже редактируем, не открываем новое
+    if State.editingBlock or State.inputMode then
+        return
+    end
+    
     local idx = nil
     local currentY = State.workspaceStartY - State.workspaceScrollY
     for i, b in ipairs(State.workspaceBlocks) do
@@ -159,15 +206,14 @@ function M.workspaceClick(x, y)
         currentY = currentY + State.blockHeight + State.blockSpacing
     end
     if idx then
-        -- Отменяем долгое нажатие
         State.longPressBlockIdx = nil
         local block = State.workspaceBlocks[idx]
         if block.param ~= nil then
             State.editingBlock = block
             State.editingText = tostring(block.param or "")
-            -- Включаем системный ввод (на мобилках появится клавиатура)
+            -- Включаем системный ввод
             love.keyboard.setTextInput(true)
-            table.insert(State.messages, "Editing parameter... Press Enter to confirm, Esc to cancel")
+            table.insert(State.messages, "Editing parameter... (Enter - confirm, Esc - cancel)")
         else
             table.insert(State.messages, "This block has no editable parameter")
         end
@@ -175,7 +221,6 @@ function M.workspaceClick(x, y)
 end
 
 function M.workspaceRelease()
-    -- Перетаскивание (если было)
     if State.draggingBlock then
         table.insert(State.workspaceBlocks, State.draggingBlock)
         State.draggingBlock = nil
