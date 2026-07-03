@@ -28,8 +28,9 @@ local State = {
     longPressStartTime = 0,
     longPressMoved = false,
 
-    editingBlock = nil,           -- ссылка на редактируемый блок
+    editingBlock = nil,
     editingText = "",
+    inputMode = nil,   -- "save", "load" или nil
 
     -- Paint
     paintMode = false,
