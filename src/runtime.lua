@@ -1,10 +1,10 @@
 -- src/runtime.lua
 local State = require("src.state")
 local expr = require("src.expr")
+local firebase = require("src.firebase")
 
 local M = {}
 
--- Сборка обработчиков событий из корневых блоков
 function M.compileScript()
     State.eventHandlers = {}
     local ce = nil
@@ -20,14 +20,11 @@ function M.compileScript()
     end
 end
 
--- Безопасное вычисление параметра (число, строка, выражение)
 local function computeParam(param, env)
     if param == nil then return nil end
     if type(param) == "number" then return param end
     if type(param) == "string" then
-        -- Если строка пустая, возвращаем nil
         if param == "" then return nil end
-        -- Если строка содержит операторы (+ - * / ^ ( )), вычисляем как выражение
         if param:match("[%+%-%*/%^%(%)]") then
             local ctx = {}
             for k, v in pairs(State.vars) do ctx[k] = v end
@@ -39,16 +36,10 @@ local function computeParam(param, env)
             ctx["mouseX"] = love.mouse.getX()
             ctx["mouseY"] = love.mouse.getY()
             ctx["size"] = State.objectSize
-            -- Защита от ошибок вычисления
             local success, result = pcall(expr.evaluate, param, ctx)
-            if success then
-                return result
-            else
-                print("Expression error:", param, result)
-                return nil
-            end
+            if success then return result end
+            return nil
         else
-            -- Простое число или текст
             local num = tonumber(param)
             if num then return num end
             return param
@@ -57,7 +48,6 @@ local function computeParam(param, env)
     return param
 end
 
--- Выполнение списка действий
 function M.executeActions(actions, env)
     env = env or {}
     local i = 1
@@ -65,7 +55,7 @@ function M.executeActions(actions, env)
         local a = actions[i]
         local p = computeParam(a.param, env)
 
-        -- Действия с переменными
+        -- Блоки переменных
         if a.name == "setVar" then
             local varName = a.paramName or "var"
             State.vars[varName] = p
@@ -169,6 +159,36 @@ function M.executeActions(actions, env)
             else
                 table.insert(State.messages, "no touch")
             end
+
+        -- === БЛОКИ FIREBASE (с полным URL) ===
+        elseif a.name == "firebaseGet" then
+            local url = tostring(p or "")
+            if url and url ~= "" then
+                local result = firebase.getFull(url)
+                if result then
+                    State.vars["_firebase_result"] = result
+                    table.insert(State.messages, "Firebase GET: success")
+                else
+                    table.insert(State.messages, "Firebase GET: error")
+                end
+            end
+
+        elseif a.name == "firebasePut" then
+            local paramStr = tostring(a.param or "")
+            local url, varName = paramStr:match("^(.-)|(.+)$")
+            if not url then
+                url = paramStr
+                varName = "_firebase_result"
+            end
+            local data = State.vars[varName] or {}
+            if url and url ~= "" then
+                local result = firebase.putFull(url, data)
+                if result then
+                    table.insert(State.messages, "Firebase PUT: success")
+                else
+                    table.insert(State.messages, "Firebase PUT: error")
+                end
+            end
         end
 
         -- Отслеживание пера при движении
@@ -176,7 +196,7 @@ function M.executeActions(actions, env)
             table.insert(State.penPoints, {State.cubeX, State.cubeY, State.penColor[1], State.penColor[2], State.penColor[3], State.penSize})
         end
 
-        -- Обработка вложенных управляющих блоков
+        -- Вложенные управляющие блоки
         if a.type == "control" and a.children then
             if a.name == "repeat" then
                 local times = tonumber(p) or 3
