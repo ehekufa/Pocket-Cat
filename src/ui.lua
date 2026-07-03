@@ -54,7 +54,6 @@ function M.drawTabs()
 end
 
 function M.drawButtons()
-    -- Кнопка запуска
     local rx = love.graphics.getWidth() - 50
     love.graphics.setColor(0,1,0)
     love.graphics.circle("fill", rx, 15, 22)
@@ -63,24 +62,20 @@ function M.drawButtons()
     State.runButton = {x = rx, y = 15, r = 22}
 
     local btnY = 50
-    -- Save .cat
     love.graphics.setColor(0.2,0.5,1.0)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
     love.graphics.print("Save .cat", love.graphics.getWidth()-145, btnY+8)
     btnY = btnY + 35
-    -- Load .cat
     love.graphics.setColor(0.2,0.5,1.0)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
     love.graphics.print("Load .cat", love.graphics.getWidth()-145, btnY+8)
     btnY = btnY + 35
-    -- Copy/Paste
     love.graphics.setColor(0.7,0.7,0.2)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 68, 25)
     love.graphics.print("Copy", love.graphics.getWidth()-145, btnY+5)
     love.graphics.rectangle("fill", love.graphics.getWidth()-78, btnY, 68, 25)
     love.graphics.print("Paste", love.graphics.getWidth()-73, btnY+5)
     btnY = btnY + 35
-    -- Variables
     love.graphics.setColor(0.9,0.5,0.1)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
     love.graphics.print("Variables", love.graphics.getWidth()-145, btnY+8)
@@ -98,7 +93,6 @@ function M.drawMessages()
 end
 
 function M.handleClick(x, y)
-    -- Вкладки сцен и объектов
     if y <= 60 then
         if y >= 5 and y <= 30 then
             local sx = 70
@@ -134,7 +128,6 @@ function M.handleClick(x, y)
                         return true
                     end
                     if x >= ox+w+35 and x <= ox+w+60 then
-                        -- Показываем список файлов (любое действие)
                         return true
                     end
                     ox = ox + w + 65
@@ -146,7 +139,6 @@ function M.handleClick(x, y)
             end
         end
     else
-        -- Кнопка запуска
         if State.runButton then
             local bx, by, br = State.runButton.x, State.runButton.y, State.runButton.r
             if (x - bx)^2 + (y - by)^2 <= br^2 then
@@ -155,20 +147,16 @@ function M.handleClick(x, y)
             end
         end
 
-        -- Кнопки Save .cat и Load .cat
         local btnY = 50
-        -- Save .cat
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            -- Начинаем системный ввод для имени файла
             State.inputMode = "save"
-            State.editingBlock = nil  -- чтобы не путать с параметром
+            State.editingBlock = nil
             State.editingText = ""
             love.keyboard.setTextInput(true)
             table.insert(State.messages, "Enter filename (without .cat):")
             return true
         end
         btnY = btnY + 35
-        -- Load .cat
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
             State.inputMode = "load"
             State.editingBlock = nil
@@ -178,7 +166,6 @@ function M.handleClick(x, y)
             return true
         end
         btnY = btnY + 35
-        -- Copy/Paste
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-82 and y >= btnY and y <= btnY+25 then
             blocks.copyBlock()
             return true
@@ -188,7 +175,6 @@ function M.handleClick(x, y)
             return true
         end
         btnY = btnY + 35
-        -- Variables
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
             local msg = "Variables: "
             for k,v in pairs(State.vars) do msg = msg .. k .. "=" .. tostring(v) .. " " end
