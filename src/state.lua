@@ -5,7 +5,7 @@ local State = {
     currentObjectIdx = 1,
 
     paletteBlocks = {},
-    workspaceBlocks = {},         -- список корневых блоков (каждый может иметь children)
+    workspaceBlocks = {},
 
     paletteWidth = 200,
     paletteScrollY = 0,
@@ -21,28 +21,15 @@ local State = {
 
     draggingBlock = nil,
     dragFromPalette = false,
-    dragSourceParent = nil,       -- родитель перетаскиваемого блока (если внутри контейнера)
+    dragSourceParent = nil,
     dragSourceIndex = nil,
 
     longPressBlockIdx = nil,
     longPressStartTime = 0,
     longPressMoved = false,
 
-    editingBlock = nil,           -- ссылка на редактируемый блок (вместо индекса)
+    editingBlock = nil,           -- ссылка на редактируемый блок
     editingText = "",
-
-    -- Keyboard
-    keyboardMode = "digits",
-    keyboardVisible = false,
-    keyboardHeight = 260,
-    keyboardPosX = 0,
-    keyboardPosY = 0,
-    keyW = 44,
-    keyH = 44,
-    keySpacing = 4,
-    digitsKeys = {{"1","2","3"},{"4","5","6"},{"7","8","9"},{".","0","⌫"}},
-    ruKeys = {{"й","ц","у","к","е","н","г","ш","щ","з","х","ъ"},{"ф","ы","в","а","п","р","о","л","д","ж","э"},{"я","ч","с","м","и","т","ь","б","ю","ё"}},
-    enKeys = {{"q","w","e","r","t","y","u","i","o","p"},{"a","s","d","f","g","h","j","k","l"},{"z","x","c","v","b","n","m"}},
 
     -- Paint
     paintMode = false,
@@ -82,8 +69,8 @@ local State = {
     penPoints = {},
     drawCommands = {},
     messages = {},
-    vars = {},                 -- переменные (имя → значение)
-    varList = {},              -- список имён переменных для отображения
+    vars = {},
+    varList = {},
 
     -- Objects
     showCube = false,
