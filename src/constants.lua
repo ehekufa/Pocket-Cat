@@ -60,8 +60,8 @@ M.paletteBlocks = {
     {type="action", name="touchX", label="touch X", category="sensing"},
     {type="action", name="touchY", label="touch Y", category="sensing"},
     -- Cloud (Firebase)
-    {type="action", name="firebaseGet", label="firebase get", param="path", category="cloud"},
-    {type="action", name="firebasePut", label="firebase put", param="path|value", category="cloud"},
+    {type="action", name="firebaseGet", label="firebase get", param="URL", category="cloud"},
+    {type="action", name="firebasePut", label="firebase put", param="URL|varName", category="cloud"},
 }
 
 return M
