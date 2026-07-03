@@ -25,7 +25,7 @@ function love.draw()
     ui.drawTabs()
     ui.drawButtons()
     draw_objects.drawSceneObjects()
-    keyboard.drawKeyboard()
+    -- Виртуальная клавиатура больше не рисуется
     paint.drawPaint()
     ui.drawMessages()
 end
@@ -36,14 +36,13 @@ function love.update(dt)
     ui.updateLongPress(dt)
 end
 
--- Обработка мыши / тач с блокировкой Paint при открытой клавиатуре
+-- Обработка мыши / тач
 function love.mousepressed(x, y, button)
-    if state.keyboardVisible then
+    if state.keyboardVisible then  -- больше не используется, но оставим для совместимости
         keyboard.handleTouch(x, y)
         return
     end
     if paint.handleTouch(x, y, true) then return end
-    if keyboard.handleTouch(x, y) then return end
     if ui.handleClick(x, y) then return end
     if x <= state.paletteWidth then
         blocks.paletteClick(x, y)
@@ -53,28 +52,21 @@ function love.mousepressed(x, y, button)
 end
 
 function love.mousereleased(x, y, button)
-    if state.keyboardVisible then return end
     blocks.paletteRelease()
     blocks.workspaceRelease()
     runtime.isReleased = true
 end
 
 function love.touchmoved(id, x, y, dx, dy)
-    if state.keyboardVisible then return end
     paint.handleTouch(x, y, true)
     blocks.handleTouchMove(x, y, dx, dy)
 end
 
 function love.touchpressed(id, x, y)
-    if state.keyboardVisible then
-        keyboard.handleTouch(x, y)
-        return
-    end
     love.mousepressed(x, y, 1)
 end
 
 function love.touchreleased(id, x, y)
-    if state.keyboardVisible then return end
     love.mousereleased(x, y, 1)
 end
 
@@ -82,12 +74,23 @@ function love.wheelmoved(x, y)
     blocks.handleWheel(x, y)
 end
 
+-- Системный ввод текста
 function love.textinput(t)
-    keyboard.textInput(t)
+    keyboard.handleTextInput(t)
 end
 
+-- Обработка нажатий клавиш (включая Enter, Escape, Backspace)
 function love.keypressed(key)
-    keyboard.keyPressed(key)
+    -- Сначала обработка редактирования параметра
+    keyboard.handleKeyPressed(key)
+    -- Если не в режиме редактирования, обрабатываем глобальные горячие клавиши
+    if not state.editingBlock then
+        if key == "f5" then
+            runtime.runProject()
+        elseif key == "f2" then
+            project.saveProject("project.cat")
+        end
+    end
 end
 
 function love.filedropped(file)
