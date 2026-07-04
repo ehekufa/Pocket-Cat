@@ -19,13 +19,11 @@ function M.compileScript()
     end
 end
 
--- Безопасное получение параметра (строка или число)
 local function computeParam(param, env)
     if param == nil then return nil end
     if type(param) == "number" then return param end
     if type(param) == "string" then
         if param == "" then return nil end
-        -- Пробуем преобразовать в число
         local num = tonumber(param)
         if num then return num end
         return param
@@ -40,7 +38,6 @@ function M.executeActions(actions, env)
         local a = actions[i]
         local p = computeParam(a.param, env)
 
-        -- Блоки переменных
         if a.name == "setVar" then
             local varName = a.paramName or "var"
             State.vars[varName] = p
@@ -50,8 +47,6 @@ function M.executeActions(actions, env)
         elseif a.name == "showVar" then
             local varName = a.paramName or "var"
             table.insert(State.messages, varName .. " = " .. tostring(State.vars[varName] or 0))
-
-        -- Движение
         elseif a.name == "changeX" then
             local delta = tonumber(p)
             if delta then State.cubeX = State.cubeX + delta end
@@ -67,8 +62,6 @@ function M.executeActions(actions, env)
         elseif a.name == "turn" then
             local val = tonumber(p)
             if val then State.objectAngle = State.objectAngle + val end
-
-        -- Внешний вид
         elseif a.name == "showCube" then
             State.showCube = true; State.showImage = false; State.showSphere = false
         elseif a.name == "showSphere" then
@@ -87,8 +80,6 @@ function M.executeActions(actions, env)
         elseif a.name == "setSize" then
             local val = tonumber(p)
             if val then State.objectSize = val end
-
-        -- Перо
         elseif a.name == "penDown" then
             State.penDown = true
         elseif a.name == "penUp" then
@@ -103,16 +94,12 @@ function M.executeActions(actions, env)
         elseif a.name == "penSize" then
             local val = tonumber(p)
             if val then State.penSize = val end
-
-        -- Звук
         elseif a.name == "playSound" then
             local filename = "sounds/" .. (p or "")
             if love.filesystem.getInfo(filename) then
                 local source = love.audio.newSource(filename, "static")
                 if source then source:play() end
             end
-
-        -- Управление
         elseif a.name == "wait" then
             local val = tonumber(p)
             if val then State.waitTimer = val end
@@ -122,8 +109,6 @@ function M.executeActions(actions, env)
         elseif a.name == "stopAll" then
             State.stopAll = true
             return true
-
-        -- Текст и сенсоры
         elseif a.name == "printText" then
             table.insert(State.messages, tostring(p or "Hello!"))
         elseif a.name == "mouseX" then
@@ -144,8 +129,6 @@ function M.executeActions(actions, env)
             else
                 table.insert(State.messages, "no touch")
             end
-
-        -- Firebase блоки
         elseif a.name == "firebaseGet" then
             local url = tostring(p or "")
             if url and url ~= "" then
@@ -157,7 +140,6 @@ function M.executeActions(actions, env)
                     table.insert(State.messages, "Firebase GET: error")
                 end
             end
-
         elseif a.name == "firebasePut" then
             local paramStr = tostring(a.param or "")
             local url, varName = paramStr:match("^(.-)|(.+)$")
@@ -176,12 +158,10 @@ function M.executeActions(actions, env)
             end
         end
 
-        -- Отслеживание пера при движении
         if State.penDown and (a.name == "changeX" or a.name == "changeY" or a.name == "setX" or a.name == "setY" or a.name == "turn") then
             table.insert(State.penPoints, {State.cubeX, State.cubeY, State.penColor[1], State.penColor[2], State.penColor[3], State.penSize})
         end
 
-        -- Вложенные управляющие блоки
         if a.type == "control" and a.children then
             if a.name == "repeat" then
                 local times = tonumber(p) or 3
