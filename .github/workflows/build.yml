@@ -147,10 +147,10 @@ jobs:
           cp love-windows/love-11.5-win64/* dist/PocketCat64/
           cat game.love >> dist/PocketCat64/love.exe
           mv dist/PocketCat64/love.exe dist/PocketCat64/PocketCat.exe
-      - name: Add LuaSocket for Windows (full package)
+      - name: Add LuaSocket for Windows
         run: |
-          # Скачиваем официальный релиз LuaSocket 3.1.0 для Windows (64-bit)
-          wget -O luasocket-win64.zip "https://github.com/lunarmodules/luasocket/releases/download/v3.1.0/luasocket-3.1.0-win64.zip"
+          # Скачиваем готовую сборку LuaSocket 3.0.0 для Windows 64-bit
+          wget -O luasocket-win64.zip "https://github.com/CristiFati/Prebuilt-Binaries/raw/master/LuaSocket/v3/LuaSocket-3.0.0(Lua5.4)-Win-pc064.zip"
           unzip -o luasocket-win64.zip -d luasocket-temp
           # Копируем все .dll в корень игры
           cp luasocket-temp/*.dll dist/PocketCat64/ 2>/dev/null || true
@@ -158,15 +158,6 @@ jobs:
           cp luasocket-temp/*.lua dist/PocketCat64/ 2>/dev/null || true
           cp -r luasocket-temp/socket dist/PocketCat64/ 2>/dev/null || true
           cp -r luasocket-temp/mime dist/PocketCat64/ 2>/dev/null || true
-          # Если структура другая, попробуем альтернативный вариант (из src/)
-          if [ ! -f "dist/PocketCat64/socket.dll" ]; then
-            wget -O luasocket-src.zip "https://github.com/diegonehab/luasocket/archive/refs/tags/v3.1.0.zip"
-            unzip luasocket-src.zip -d luasocket-src
-            cp luasocket-src/luasocket-3.1.0/src/*.dll dist/PocketCat64/ 2>/dev/null || true
-            cp luasocket-src/luasocket-3.1.0/src/*.lua dist/PocketCat64/ 2>/dev/null || true
-            cp -r luasocket-src/luasocket-3.1.0/src/socket dist/PocketCat64/
-            cp -r luasocket-src/luasocket-3.1.0/src/mime dist/PocketCat64/
-          fi
       - name: Create ZIP archive
         run: |
           cd dist
