@@ -93,6 +93,16 @@ function M.drawMessages()
 end
 
 function M.handleClick(x, y)
+    -- ===== Проверка кнопки запуска (всегда в приоритете) =====
+    if State.runButton then
+        local bx, by, br = State.runButton.x, State.runButton.y, State.runButton.r
+        if (x - bx)^2 + (y - by)^2 <= br^2 then
+            runtime.runProject()
+            return true
+        end
+    end
+
+    -- ===== Обработка верхней панели (сцены, объекты) =====
     if y <= 60 then
         if y >= 5 and y <= 30 then
             local sx = 70
@@ -128,6 +138,7 @@ function M.handleClick(x, y)
                         return true
                     end
                     if x >= ox+w+35 and x <= ox+w+60 then
+                        -- кнопка "F" (пока ничего не делает)
                         return true
                     end
                     ox = ox + w + 65
@@ -138,50 +149,45 @@ function M.handleClick(x, y)
                 end
             end
         end
-    else
-        if State.runButton then
-            local bx, by, br = State.runButton.x, State.runButton.y, State.runButton.r
-            if (x - bx)^2 + (y - by)^2 <= br^2 then
-                runtime.runProject()
-                return true
-            end
-        end
-
-        local btnY = 50
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            State.inputMode = "save"
-            State.editingBlock = nil
-            State.editingText = ""
-            love.keyboard.setTextInput(true)
-            table.insert(State.messages, "Enter filename (without .cat):")
-            return true
-        end
-        btnY = btnY + 35
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            State.inputMode = "load"
-            State.editingBlock = nil
-            State.editingText = ""
-            love.keyboard.setTextInput(true)
-            table.insert(State.messages, "Enter filename to load (with .cat):")
-            return true
-        end
-        btnY = btnY + 35
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-82 and y >= btnY and y <= btnY+25 then
-            blocks.copyBlock()
-            return true
-        end
-        if x >= love.graphics.getWidth()-78 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+25 then
-            blocks.pasteBlock()
-            return true
-        end
-        btnY = btnY + 35
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            local msg = "Variables: "
-            for k,v in pairs(State.vars) do msg = msg .. k .. "=" .. tostring(v) .. " " end
-            table.insert(State.messages, msg)
-            return true
-        end
+        return false
     end
+
+    -- ===== Обработка кнопок справа (Save, Load, Copy, Paste, Variables) =====
+    local btnY = 50
+    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+        State.inputMode = "save"
+        State.editingBlock = nil
+        State.editingText = ""
+        love.keyboard.setTextInput(true)
+        table.insert(State.messages, "Enter filename (without .cat):")
+        return true
+    end
+    btnY = btnY + 35
+    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+        State.inputMode = "load"
+        State.editingBlock = nil
+        State.editingText = ""
+        love.keyboard.setTextInput(true)
+        table.insert(State.messages, "Enter filename to load (with .cat):")
+        return true
+    end
+    btnY = btnY + 35
+    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-82 and y >= btnY and y <= btnY+25 then
+        blocks.copyBlock()
+        return true
+    end
+    if x >= love.graphics.getWidth()-78 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+25 then
+        blocks.pasteBlock()
+        return true
+    end
+    btnY = btnY + 35
+    if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
+        local msg = "Variables: "
+        for k,v in pairs(State.vars) do msg = msg .. k .. "=" .. tostring(v) .. " " end
+        table.insert(State.messages, msg)
+        return true
+    end
+
     return false
 end
 
