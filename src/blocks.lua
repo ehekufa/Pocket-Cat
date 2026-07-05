@@ -2,6 +2,7 @@
 local State = require("src.state")
 local utils = require("src.utils")
 local constants = require("src.constants")
+local project = require("src.project")
 
 local M = {}
 
@@ -68,22 +69,18 @@ function M.drawWorkspace()
     love.graphics.setColor(0.1,0.1,0.1)
     love.graphics.rectangle("fill", State.paletteWidth, 0, love.graphics.getWidth()-State.paletteWidth, love.graphics.getHeight())
     love.graphics.setColor(1,1,1)
-    love.graphics.print("Workspace", State.workspaceStartX, 10 - State.workspaceScrollY)
+    love.graphics.print("Workspace (Scene blocks)", State.workspaceStartX, 10 - State.workspaceScrollY)
     M.drawBlockTree(State.workspaceBlocks, State.workspaceStartX, State.workspaceStartY, 0, State.workspaceScrollY)
     
     -- === ОТОБРАЖЕНИЕ ВВОДИМОГО ТЕКСТА ===
     if State.editingBlock or State.inputMode then
-        -- Рисуем поле ввода поверх рабочей области
         local bx = State.workspaceStartX + 50
         local by = love.graphics.getHeight() / 2 - 30
         local bw = 400
         local bh = 40
         
-        -- Фон
         love.graphics.setColor(0, 0, 0, 0.85)
         love.graphics.rectangle("fill", bx - 20, by - 40, bw + 40, bh + 80, 10)
-        
-        -- Заголовок
         love.graphics.setColor(1, 1, 1)
         if State.editingBlock then
             love.graphics.print("Editing parameter:", bx, by - 30)
@@ -93,21 +90,16 @@ function M.drawWorkspace()
             love.graphics.print("Load file:", bx, by - 30)
         end
         
-        -- Поле ввода
         love.graphics.setColor(0.2, 0.2, 0.2)
         love.graphics.rectangle("fill", bx, by, bw, bh, 5)
         love.graphics.setColor(1, 1, 1)
         love.graphics.rectangle("line", bx, by, bw, bh, 5)
-        
-        -- Текст в поле
         love.graphics.setColor(0.8, 0.8, 0.8)
         local displayText = State.editingText or ""
         if #displayText > 30 then
             displayText = displayText:sub(1, 30) .. "…"
         end
         love.graphics.print(displayText, bx + 10, by + 12)
-        
-        -- Подсказка
         love.graphics.setColor(0.6, 0.6, 0.6)
         love.graphics.print("Enter - confirm, Esc - cancel", bx, by + bh + 10)
     end
@@ -119,10 +111,23 @@ function M.drawWorkspace()
     love.graphics.setScissor()
 end
 
+-- Обновление рабочей области – загружаем блоки из текущей сцены
 function M.updateWorkspace()
-    local obj = require("src.project").getCurrentObject()
-    State.workspaceBlocks = obj and obj.blocks or {}
+    local scene = project.getCurrentScene()
+    if scene then
+        State.workspaceBlocks = scene.blocks or {}
+    else
+        State.workspaceBlocks = {}
+    end
     M.calculateHeights()
+end
+
+-- Сохранение текущих блоков в сцену
+function M.saveSceneBlocks()
+    local scene = project.getCurrentScene()
+    if scene then
+        scene.blocks = State.workspaceBlocks
+    end
 end
 
 function M.calculateHeights()
@@ -151,7 +156,7 @@ function M.updateScrolling(dt)
     State.workspaceScrollY = math.max(0, math.min(State.workspaceScrollY, maxWs))
 end
 
--- Клик по палитре (добавление блока)
+-- Клик по палитре (запоминаем блок)
 function M.paletteClick(x, y)
     local yPal = 10 - State.paletteScrollY
     local lastCat = nil
@@ -181,6 +186,7 @@ function M.paletteRelease()
                 elseChildren = (State.paletteTapBlock.name == "ifElse") and {} or nil
             }
             table.insert(State.workspaceBlocks, nb)
+            M.saveSceneBlocks()
             M.calculateHeights()
             require("src.runtime").compileScript()
         end
@@ -188,9 +194,8 @@ function M.paletteRelease()
     end
 end
 
--- Клик по рабочей области – открываем редактирование параметра
+-- Клик по рабочей области – запоминаем индекс для долгого нажатия
 function M.workspaceClick(x, y)
-    -- Если уже редактируем, не открываем новое
     if State.editingBlock or State.inputMode then
         return
     end
@@ -206,26 +211,35 @@ function M.workspaceClick(x, y)
         currentY = currentY + State.blockHeight + State.blockSpacing
     end
     if idx then
-        State.longPressBlockIdx = nil
-        local block = State.workspaceBlocks[idx]
-        if block.param ~= nil then
-            State.editingBlock = block
-            State.editingText = tostring(block.param or "")
-            -- Включаем системный ввод
-            love.keyboard.setTextInput(true)
-            table.insert(State.messages, "Editing parameter... (Enter - confirm, Esc - cancel)")
-        else
-            table.insert(State.messages, "This block has no editable parameter")
-        end
+        State.longPressBlockIdx = idx
+        State.longPressStartTime = love.timer.getTime()
+        State.longPressMoved = false
     end
 end
 
 function M.workspaceRelease()
+    if State.longPressBlockIdx then
+        local elapsed = love.timer.getTime() - State.longPressStartTime
+        if not State.longPressMoved and elapsed < 0.5 then
+            local block = State.workspaceBlocks[State.longPressBlockIdx]
+            if block and block.param ~= nil then
+                State.editingBlock = block
+                State.editingText = tostring(block.param or "")
+                love.keyboard.setTextInput(true)
+                table.insert(State.messages, "Editing parameter... (Enter - confirm, Esc - cancel)")
+            else
+                table.insert(State.messages, "This block has no editable parameter")
+            end
+        end
+        State.longPressBlockIdx = nil
+    end
+    
     if State.draggingBlock then
         table.insert(State.workspaceBlocks, State.draggingBlock)
-        State.draggingBlock = nil
+        M.saveSceneBlocks()
         M.calculateHeights()
         require("src.runtime").compileScript()
+        State.draggingBlock = nil
     end
 end
 
@@ -250,6 +264,7 @@ function M.handleTouchMove(x, y, dx, dy)
             State.longPressMoved = true
             State.draggingBlock = State.workspaceBlocks[State.longPressBlockIdx]
             table.remove(State.workspaceBlocks, State.longPressBlockIdx)
+            M.saveSceneBlocks()
             State.longPressBlockIdx = nil
         end
     elseif x <= State.paletteWidth then
@@ -260,6 +275,7 @@ function M.handleTouchMove(x, y, dx, dy)
 end
 
 function M.handleWheel(x, y)
+    State.paletteTapBlock = nil  -- сбрасываем, чтобы случайно не вставить блок
     if x <= State.paletteWidth then
         State.paletteScrollY = State.paletteScrollY - y * 30
     else
@@ -286,6 +302,7 @@ end
 function M.pasteBlock()
     if State.clipboard then
         table.insert(State.workspaceBlocks, State.clipboard)
+        M.saveSceneBlocks()
         M.calculateHeights()
         require("src.runtime").compileScript()
         table.insert(State.messages, "Block pasted")
@@ -297,6 +314,7 @@ end
 function M.deleteBlockByIndex(idx)
     if idx and idx >= 1 and idx <= #State.workspaceBlocks then
         table.remove(State.workspaceBlocks, idx)
+        M.saveSceneBlocks()
         M.calculateHeights()
         require("src.runtime").compileScript()
         State.editingBlock = nil
