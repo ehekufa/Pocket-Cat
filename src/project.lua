@@ -2,6 +2,7 @@
 local State = require("src.state")
 local blocks = require("src.blocks")
 local utils = require("src.utils")
+local runtime = require("src.runtime")
 
 local M = {}
 
@@ -10,12 +11,13 @@ function M.defaultProject()
         scenes = {{
             name = "Scene 1",
             bgColor = {0.2,0.2,0.4},
+            blocks = {},  -- блоки теперь хранятся в сцене
             objects = {{
                 name = "Object 1",
                 x = 200,
                 y = 200,
                 image = nil,
-                blocks = {}
+                -- blocks убраны
             }}
         }},
         orientation = "portrait"
@@ -36,12 +38,16 @@ end
 function M.loadDefault()
     State.project = M.defaultProject()
     blocks.updateWorkspace()
+    runtime.compileScript()
 end
 
--- Сохранение .cat с указанным именем
+-- Сохранение .cat с указанным именем (по умолчанию pocketcatproject.cat)
 function M.saveProject(filename)
+    -- Сохраняем текущие блоки в сцену перед сохранением
+    blocks.saveSceneBlocks()
+    
     if not filename or filename == "" then
-        filename = "project.cat"
+        filename = "pocketcatproject.cat"
     end
     if not filename:match("%.cat$") then
         filename = filename .. ".cat"
@@ -67,8 +73,12 @@ function M.loadProject(filename)
     local data = utils.json.decode(contents)
     if data then
         State.project = data
+        -- Если в сцене нет поля blocks, создаём пустой массив
+        for _, sc in ipairs(State.project.scenes) do
+            if not sc.blocks then sc.blocks = {} end
+        end
         blocks.updateWorkspace()
-        require("src.runtime").compileScript()
+        runtime.compileScript()
         table.insert(State.messages, "Project loaded from " .. filename)
         return data
     else
@@ -89,7 +99,7 @@ function M.getProjectFiles()
     return files
 end
 
--- Удалить .cat файл (опционально)
+-- Удалить .cat файл
 function M.deleteProjectFile(filename)
     if love.filesystem.getInfo(filename) then
         love.filesystem.remove(filename)
@@ -99,21 +109,31 @@ function M.deleteProjectFile(filename)
     return false
 end
 
--- Обработка перетаскивания файлов
+-- Обработка перетаскивания файлов (изображения, звуки, проекты)
 function M.handleFileDrop(file)
     local fname = type(file) == "string" and file or (file.name or "")
     if fname == "" then return end
     local ext = fname:match("%.([^.]+)$")
     if not ext then return end
     ext = ext:lower()
+    
+    -- Если перетащили .cat проект – загружаем его
+    if ext == "cat" then
+        M.loadProject(fname)
+        return
+    end
+    
+    -- Иначе изображения и звуки
     local destFolder = "sprites/"
     if ext == "ogg" or ext == "mp3" or ext == "wav" then
         destFolder = "sounds/"
     elseif ext == "png" or ext == "jpg" or ext == "jpeg" or ext == "gif" then
         destFolder = "sprites/"
     else
+        table.insert(State.messages, "Unsupported file type: " .. ext)
         return
     end
+    
     love.filesystem.createDirectory(destFolder)
     local baseName = fname:match("([^/\\]+)$") or fname
     local destName = destFolder .. baseName
@@ -137,6 +157,8 @@ function M.handleFileDrop(file)
                 table.insert(State.messages, "Sound imported: " .. baseName)
             end
         end
+    else
+        table.insert(State.messages, "Failed to read file: " .. fname)
     end
 end
 
