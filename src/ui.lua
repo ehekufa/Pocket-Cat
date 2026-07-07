@@ -54,7 +54,6 @@ function M.drawTabs()
 end
 
 function M.drawButtons()
-    -- Кнопка запуска (зелёный круг)
     local rx = love.graphics.getWidth() - 50
     love.graphics.setColor(0,1,0)
     love.graphics.circle("fill", rx, 15, 22)
@@ -81,8 +80,7 @@ function M.drawButtons()
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
     love.graphics.print("Variables", love.graphics.getWidth()-145, btnY+8)
     btnY = btnY + 35
-    -- Новая кнопка Import
-    love.graphics.setColor(0.5, 0.8, 0.2)
+    love.graphics.setColor(0.5,0.8,0.2)
     love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
     love.graphics.print("Import", love.graphics.getWidth()-145, btnY+8)
 end
@@ -114,7 +112,6 @@ function M.handleClick(x, y)
                 sx = sx + w + 5
             end
             if x >= sx and x <= sx+25 then
-                -- Добавить сцену (заглушка)
                 table.insert(State.messages, "Add scene not implemented")
                 return true
             end
@@ -140,18 +137,15 @@ function M.handleClick(x, y)
                     ox = ox + w + 65
                 end
                 if x >= ox and x <= ox+25 then
-                    -- Добавить объект (заглушка)
                     table.insert(State.messages, "Add object not implemented")
                     return true
                 end
             end
         end
     else
-        -- Кнопка запуска (исправлена)
         if State.runButton then
             local bx, by, br = State.runButton.x, State.runButton.y, State.runButton.r
-            local hitRadius = br + 10
-            if (x - bx)^2 + (y - by)^2 <= hitRadius^2 then
+            if (x - bx)^2 + (y - by)^2 <= (br + 10)^2 then
                 runtime.runProject()
                 table.insert(State.messages, "Project started!")
                 return true
@@ -159,7 +153,6 @@ function M.handleClick(x, y)
         end
 
         local btnY = 50
-        -- Save .cat
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
             State.inputMode = "save"
             State.editingBlock = nil
@@ -169,7 +162,6 @@ function M.handleClick(x, y)
             return true
         end
         btnY = btnY + 35
-        -- Load .cat
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
             State.inputMode = "load"
             State.editingBlock = nil
@@ -179,18 +171,15 @@ function M.handleClick(x, y)
             return true
         end
         btnY = btnY + 35
-        -- Copy
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-82 and y >= btnY and y <= btnY+25 then
             blocks.copyBlock()
             return true
         end
-        -- Paste
         if x >= love.graphics.getWidth()-78 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+25 then
             blocks.pasteBlock()
             return true
         end
         btnY = btnY + 35
-        -- Variables
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
             local msg = "Variables: "
             for k,v in pairs(State.vars) do msg = msg .. k .. "=" .. tostring(v) .. " " end
@@ -198,9 +187,8 @@ function M.handleClick(x, y)
             return true
         end
         btnY = btnY + 35
-        -- Import (новая кнопка)
         if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            table.insert(State.messages, "Перетащите файл (.png, .jpg, .cat) на окно игры")
+            table.insert(State.messages, "Drag and drop a file (.png, .jpg, .cat) onto the window")
             return true
         end
     end
