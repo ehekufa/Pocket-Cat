@@ -11,13 +11,12 @@ function M.defaultProject()
         scenes = {{
             name = "Scene 1",
             bgColor = {0.2,0.2,0.4},
-            blocks = {},  -- блоки теперь хранятся в сцене
+            blocks = {},
             objects = {{
                 name = "Object 1",
                 x = 200,
                 y = 200,
                 image = nil,
-                -- blocks убраны
             }}
         }},
         orientation = "portrait"
@@ -41,11 +40,8 @@ function M.loadDefault()
     runtime.compileScript()
 end
 
--- Сохранение .cat с указанным именем (по умолчанию pocketcatproject.cat)
 function M.saveProject(filename)
-    -- Сохраняем текущие блоки в сцену перед сохранением
     blocks.saveSceneBlocks()
-    
     if not filename or filename == "" then
         filename = "pocketcatproject.cat"
     end
@@ -58,7 +54,6 @@ function M.saveProject(filename)
     return true
 end
 
--- Загрузка .cat по имени
 function M.loadProject(filename)
     local info = love.filesystem.getInfo(filename)
     if not info then
@@ -73,7 +68,6 @@ function M.loadProject(filename)
     local data = utils.json.decode(contents)
     if data then
         State.project = data
-        -- Если в сцене нет поля blocks, создаём пустой массив
         for _, sc in ipairs(State.project.scenes) do
             if not sc.blocks then sc.blocks = {} end
         end
@@ -87,7 +81,6 @@ function M.loadProject(filename)
     end
 end
 
--- Получить список всех .cat файлов в папке проекта
 function M.getProjectFiles()
     local files = {}
     local items = love.filesystem.getDirectoryItems(".")
@@ -99,7 +92,6 @@ function M.getProjectFiles()
     return files
 end
 
--- Удалить .cat файл
 function M.deleteProjectFile(filename)
     if love.filesystem.getInfo(filename) then
         love.filesystem.remove(filename)
@@ -109,7 +101,6 @@ function M.deleteProjectFile(filename)
     return false
 end
 
--- Обработка перетаскивания файлов (изображения, звуки, проекты)
 function M.handleFileDrop(file)
     local fname = type(file) == "string" and file or (file.name or "")
     if fname == "" then return end
@@ -117,13 +108,11 @@ function M.handleFileDrop(file)
     if not ext then return end
     ext = ext:lower()
     
-    -- Если перетащили .cat проект – загружаем его
     if ext == "cat" then
         M.loadProject(fname)
         return
     end
     
-    -- Иначе изображения и звуки
     local destFolder = "sprites/"
     if ext == "ogg" or ext == "mp3" or ext == "wav" then
         destFolder = "sounds/"
