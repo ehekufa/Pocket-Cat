@@ -91,13 +91,29 @@ local State = {
     font = nil,
     fontSize = 16,
     clipboard = nil,
-    bgColor = {0.1, 0.1, 0.1}
+    bgColor = {0.1, 0.1, 0.1},
+    
+    -- Colors (перенесены из constants.lua)
+    catColors = {
+        event = {0.9,0.6,0.2},
+        motion = {0.2,0.6,0.9},
+        looks = {0.7,0.3,0.9},
+        sound = {0.3,0.9,0.4},
+        control = {1.0,0.8,0.2},
+        variables = {0.9,0.2,0.2},
+        draw = {0.2,0.8,0.8},
+        text = {1.0,1.0,1.0},
+        sensing = {0.7,0.7,0.7},
+        pen = {0.2,1.0,0.4},
+        cloud = {0.2,0.6,1.0}
+    }
 }
 
 function State.init()
+    -- Загружаем палитру из constants.lua только при инициализации
     local constants = require("src.constants")
-    State.catColors = constants.catColors
     State.paletteBlocks = constants.paletteBlocks
+    -- catColors уже определён в State
 end
 
 return State
