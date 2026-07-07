@@ -14,7 +14,6 @@ function M.compileScript()
         elseif b.type == "action" and ce then
             table.insert(State.eventHandlers[ce], b)
         elseif b.type == "control" and ce then
-            -- вложенные блоки обрабатываются отдельно
         end
     end
 end
@@ -129,33 +128,86 @@ function M.executeActions(actions, env)
             else
                 table.insert(State.messages, "no touch")
             end
-        elseif a.name == "firebaseGet" then
-            local url = tostring(p or "")
-            if url and url ~= "" then
-                local result = firebase.getFull(url)
-                if result then
-                    State.vars["_firebase_result"] = result
-                    table.insert(State.messages, "Firebase GET: success")
-                else
-                    table.insert(State.messages, "Firebase GET: error")
-                end
+        elseif a.name == "firebaseLogin" then
+            local nickname = tostring(p or "")
+            if nickname == "" then
+                table.insert(State.messages, "Nickname cannot be empty")
+                return true
             end
+            firebase.init({
+                apiKey = "AIzaSyCe25SaGWfaQsPyje10wi_Wsmr5yHz3HE4",
+                dbURL = "https://cubic-battle-3-default-rtdb.firebaseio.com",
+                verifySSL = false,
+            })
+            firebase.authAnonymous(function(success, data)
+                if success then
+                    State.firebaseConnected = true
+                    State.nickname = nickname
+                    local uid = data.localId
+                    firebase.put("players/" .. uid, { x = State.cubeX, y = State.cubeY, nickname = nickname })
+                    table.insert(State.messages, "Logged in as " .. nickname)
+                else
+                    table.insert(State.messages, "Firebase login failed")
+                end
+            end)
+            return true
+
+        elseif a.name == "firebaseLogout" then
+            if State.firebaseConnected and State.nickname then
+                firebase.get("players", function(ok, data)
+                    if ok and data then
+                        for uid, info in pairs(data) do
+                            if info.nickname == State.nickname then
+                                firebase.delete("players/" .. uid)
+                                break
+                            end
+                        end
+                    end
+                end)
+                State.firebaseConnected = false
+                State.nickname = nil
+                table.insert(State.messages, "Logged out")
+            else
+                table.insert(State.messages, "Not logged in")
+            end
+            return true
+
+        elseif a.name == "firebaseGet" then
+            local path = tostring(p or "")
+            if path == "" then
+                table.insert(State.messages, "Path is empty")
+                return true
+            end
+            firebase.get(path, function(success, data)
+                if success then
+                    State.vars["_firebase_result"] = data
+                    table.insert(State.messages, "Firebase GET success")
+                else
+                    table.insert(State.messages, "Firebase GET error")
+                end
+            end)
+            return true
+
         elseif a.name == "firebasePut" then
             local paramStr = tostring(a.param or "")
-            local url, varName = paramStr:match("^(.-)|(.+)$")
-            if not url then
-                url = paramStr
+            local path, varName = paramStr:match("^(.-)|(.+)$")
+            if not path then
+                path = paramStr
                 varName = "_firebase_result"
             end
-            local data = State.vars[varName] or {}
-            if url and url ~= "" then
-                local result = firebase.putFull(url, data)
-                if result then
-                    table.insert(State.messages, "Firebase PUT: success")
-                else
-                    table.insert(State.messages, "Firebase PUT: error")
-                end
+            if path == "" then
+                table.insert(State.messages, "Path is empty")
+                return true
             end
+            local data = State.vars[varName] or {}
+            firebase.put(path, data, function(success)
+                if success then
+                    table.insert(State.messages, "Firebase PUT success")
+                else
+                    table.insert(State.messages, "Firebase PUT error")
+                end
+            end)
+            return true
         end
 
         if State.penDown and (a.name == "changeX" or a.name == "changeY" or a.name == "setX" or a.name == "setY" or a.name == "turn") then
