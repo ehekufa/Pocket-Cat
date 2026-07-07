@@ -1,7 +1,7 @@
 -- src/paint.lua
 local State = require("src.state")
-local utils = require("src.utils")
 local project = require("src.project")
+local utils = require("src.utils")
 
 local M = {}
 
@@ -45,16 +45,14 @@ function M.drawPaint()
     love.graphics.rectangle("line", cx, cy, pw, ph)
     love.graphics.draw(State.paintCanvas, cx, cy, 0, State.paintScale, State.paintScale)
 
-    -- === Крестик для закрытия (правый верхний угол холста) ===
     local closeX = cx + pw - 30
     local closeY = cy + 10
-    love.graphics.setColor(1, 0, 0)
+    love.graphics.setColor(0.8, 0.2, 0.2)
     love.graphics.rectangle("fill", closeX, closeY, 24, 24, 5)
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("X", closeX + 7, closeY + 4)
     State.closeButton = {x = closeX, y = closeY, w = 24, h = 24}
 
-    -- === Панель инструментов ===
     local px = cx + pw + 30
     love.graphics.setColor(0.2, 0.2, 0.2)
     love.graphics.rectangle("fill", px - 10, 50, 140, 500, 8)
@@ -114,7 +112,6 @@ function M.drawPaint()
         end
     end
 
-    -- === HSV-палитра ===
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("Custom Color:", px, customY + 70)
     local hsvX, hsvY = px, customY + 90
@@ -138,7 +135,6 @@ function M.drawPaint()
     love.graphics.setColor(1, 1, 1)
     love.graphics.circle("line", mx + 1, my + 1, 3)
 
-    -- Ползунок яркости
     local vX, vY = px, hsvY + hsvSize + 10
     for i = 0, 119 do
         local val = i / 119
@@ -154,13 +150,12 @@ function M.drawPaint()
     love.graphics.setColor(1, 1, 1)
     love.graphics.rectangle("line", vm - 1, vY - 1, 3, 12)
 
-    -- === Кнопка Save (сохраняет, но не закрывает) ===
     love.graphics.setColor(0.3, 0.8, 0.3)
     love.graphics.rectangle("fill", px, vY + 20, 120, 30, 5)
-    love.graphics.print("Save", px + 40, vY + 28)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("Save Sprite", px + 25, vY + 28)
 end
 
--- Обработка касаний/кликов
 function M.handleTouch(x, y, isDown)
     if not State.paintMode then return false end
 
@@ -168,13 +163,16 @@ function M.handleTouch(x, y, isDown)
     local pw = State.paintWidth * State.paintScale
     local ph = State.paintHeight * State.paintScale
     local px = cx + pw + 30
-    local hsvSize = 60  -- ← ВАЖНО: объявляем локальную переменную
+    local hsvSize = 60
+    local py = 430
+    local customY = py + 60
+    local hsvX, hsvY = px, customY + 90
+    local vX, vY = px, hsvY + hsvSize + 10
+    local saveY = vY + 20
 
-    -- === Проверка крестика закрытия ===
     if State.closeButton then
         local cb = State.closeButton
         if x >= cb.x and x <= cb.x + cb.w and y >= cb.y and y <= cb.y + cb.h then
-            love.graphics.setCanvas()
             State.paintMode = false
             State.paintCustomStep = 0
             State.paintCustomInputText = ""
@@ -183,33 +181,20 @@ function M.handleTouch(x, y, isDown)
         end
     end
 
-    -- === Кнопка Save ===
-    local vX, vY = px, 50 + hsvSize + 10 + 10 -- вычисляем позицию как в drawPaint
-    -- На самом деле vY вычисляется сложнее, но мы можем переиспользовать расчет из drawPaint.
-    -- Для надежности вычислим заново:
-    local customBtnY = 430 + 60   -- py + 60
-    local hsvY = customBtnY + 90
-    local vY_slider = hsvY + hsvSize + 10
-    local saveY = vY_slider + 20
     if x >= px and x <= px + 120 and y >= saveY and y <= saveY + 30 then
-        love.graphics.setCanvas()
         local obj = project.getCurrentObject()
         if obj then
             local imgData = State.paintCanvas:newImageData()
-            -- Создаём имя файла на основе сцены и объекта
-            local filename = "sprites/obj_" .. State.currentSceneIdx .. "_" .. State.currentObjectIdx .. ".png"
-            -- Убедимся, что папка sprites существует
             love.filesystem.createDirectory("sprites")
+            local filename = "sprites/obj_" .. State.currentSceneIdx .. "_" .. State.currentObjectIdx .. ".png"
             imgData:encode("png", filename)
             obj.image = filename
-            obj.loadedImage = nil -- сбрасываем кеш, чтобы перезагрузить
+            obj.loadedImage = nil
             table.insert(State.messages, "Sprite saved: " .. filename)
         end
-        love.graphics.setCanvas()
         return true
     end
 
-    -- === Инструменты ===
     for i, tool in ipairs(State.paintTools) do
         local ty = 90 + (i - 1) * 32
         if x > px and x < px + 120 and y > ty and y < ty + 26 then
@@ -224,7 +209,6 @@ function M.handleTouch(x, y, isDown)
         end
     end
 
-    -- === Размеры ===
     for i, sz in ipairs(State.paintSizes) do
         local sx = px + (i - 1) * 35
         if x > sx and x < sx + 30 and y > 360 and y < 390 then
@@ -233,8 +217,6 @@ function M.handleTouch(x, y, isDown)
         end
     end
 
-    -- === Предустановленные размеры холста ===
-    local py = 430
     for i, psz in ipairs(State.paintPresetSizes) do
         local sx = px + ((i - 1) % 3) * 55
         local sy = py + math.floor((i - 1) / 3) * 30
@@ -246,19 +228,13 @@ function M.handleTouch(x, y, isDown)
         end
     end
 
-    -- === Кнопка Custom ===
-    local customBtnY = py + 60
-    if x > px and x < px + 120 and y > customBtnY and y < customBtnY + 26 then
+    if x > px and x < px + 120 and y > customY and y < customY + 26 then
         State.paintCustomStep = 1
         State.paintCustomInputText = ""
-        State.editingBlockIdx = nil
-        State.editingText = ""
         State.keyboardVisible = true
         return true
     end
 
-    -- === HSV-пикер ===
-    local hsvX, hsvY = px, customBtnY + 90
     if x >= hsvX and x <= hsvX + hsvSize and y >= hsvY and y <= hsvY + hsvSize then
         State.paintHue = (x - hsvX) / hsvSize
         State.paintSaturation = 1 - (y - hsvY) / hsvSize
@@ -267,7 +243,6 @@ function M.handleTouch(x, y, isDown)
         return true
     end
 
-    -- === Ползунок яркости ===
     if x >= vX and x <= vX + 119 and y >= vY and y <= vY + 10 then
         State.paintValue = (x - vX) / 119
         local r, g, b = utils.hsvToRGB(State.paintHue, State.paintSaturation, State.paintValue)
@@ -275,7 +250,6 @@ function M.handleTouch(x, y, isDown)
         return true
     end
 
-    -- === Рисование на холсте ===
     if isDown and x >= cx and x <= cx + pw and y >= cy and y <= cy + ph then
         local pxc = math.floor((x - cx) / State.paintScale) + 1
         local pyc = math.floor((y - cy) / State.paintScale) + 1
