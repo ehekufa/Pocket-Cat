@@ -13,7 +13,6 @@ function M.compileScript()
             State.eventHandlers[ce] = State.eventHandlers[ce] or {}
         elseif b.type == "action" and ce then
             table.insert(State.eventHandlers[ce], b)
-        elseif b.type == "control" and ce then
         end
     end
 end
@@ -37,6 +36,7 @@ function M.executeActions(actions, env)
         local a = actions[i]
         local p = computeParam(a.param, env)
 
+        -- Стандартные блоки (переменные, движение, внешность, перо, звук, управление, текст, сенсоры)
         if a.name == "setVar" then
             local varName = a.paramName or "var"
             State.vars[varName] = p
@@ -128,52 +128,54 @@ function M.executeActions(actions, env)
             else
                 table.insert(State.messages, "no touch")
             end
-        elseif a.name == "firebaseLogin" then
-            local nickname = tostring(p or "")
-            if nickname == "" then
-                table.insert(State.messages, "Nickname cannot be empty")
+
+        -- ============================================================
+        -- БЛОКИ FIREBASE (без хардкода, используют переменные)
+        -- ============================================================
+        elseif a.name == "firebaseInit" then
+            local paramStr = tostring(a.param or "")
+            local apiKeyVar, dbURLVar = paramStr:match("^(.-)|(.+)$")
+            if not apiKeyVar then
+                apiKeyVar = "apiKey"
+                dbURLVar = "dbURL"
+            end
+            local apiKey = State.vars[apiKeyVar] or ""
+            local dbURL = State.vars[dbURLVar] or ""
+            if apiKey == "" or dbURL == "" then
+                table.insert(State.messages, "Firebase init: apiKey or dbURL missing")
                 return true
             end
             firebase.init({
-                apiKey = "AIzaSyCe25SaGWfaQsPyje10wi_Wsmr5yHz3HE4",
-                dbURL = "https://cubic-battle-3-default-rtdb.firebaseio.com",
+                apiKey = apiKey,
+                dbURL = dbURL,
                 verifySSL = false,
             })
+            table.insert(State.messages, "Firebase initialized")
+            return true
+
+        elseif a.name == "firebaseAuthAnonymous" then
             firebase.authAnonymous(function(success, data)
                 if success then
                     State.firebaseConnected = true
-                    State.nickname = nickname
-                    local uid = data.localId
-                    firebase.put("players/" .. uid, { x = State.cubeX, y = State.cubeY, nickname = nickname })
-                    table.insert(State.messages, "Logged in as " .. nickname)
+                    State.vars["_firebase_token"] = data.idToken
+                    State.vars["_firebase_uid"] = data.localId
+                    table.insert(State.messages, "Auth OK")
                 else
-                    table.insert(State.messages, "Firebase login failed")
+                    State.firebaseConnected = false
+                    table.insert(State.messages, "Auth failed")
                 end
             end)
             return true
 
-        elseif a.name == "firebaseLogout" then
-            if State.firebaseConnected and State.nickname then
-                firebase.get("players", function(ok, data)
-                    if ok and data then
-                        for uid, info in pairs(data) do
-                            if info.nickname == State.nickname then
-                                firebase.delete("players/" .. uid)
-                                break
-                            end
-                        end
-                    end
-                end)
-                State.firebaseConnected = false
-                State.nickname = nil
-                table.insert(State.messages, "Logged out")
-            else
-                table.insert(State.messages, "Not logged in")
-            end
+        elseif a.name == "firebaseSetToken" then
+            local token = State.vars[p] or p
+            firebase.setToken(token)
+            State.vars["_firebase_token"] = token
+            table.insert(State.messages, "Token set")
             return true
 
         elseif a.name == "firebaseGet" then
-            local path = tostring(p or "")
+            local path = State.vars[p] or p
             if path == "" then
                 table.insert(State.messages, "Path is empty")
                 return true
@@ -181,39 +183,114 @@ function M.executeActions(actions, env)
             firebase.get(path, function(success, data)
                 if success then
                     State.vars["_firebase_result"] = data
-                    table.insert(State.messages, "Firebase GET success")
+                    table.insert(State.messages, "GET success")
                 else
-                    table.insert(State.messages, "Firebase GET error")
+                    table.insert(State.messages, "GET error")
                 end
             end)
             return true
 
         elseif a.name == "firebasePut" then
             local paramStr = tostring(a.param or "")
-            local path, varName = paramStr:match("^(.-)|(.+)$")
-            if not path then
-                path = paramStr
-                varName = "_firebase_result"
-            end
+            local pathVar, dataVar = paramStr:match("^(.-)|(.+)$")
+            if not pathVar then pathVar = paramStr; dataVar = "_firebase_result" end
+            local path = State.vars[pathVar] or pathVar
+            local data = State.vars[dataVar] or {}
             if path == "" then
                 table.insert(State.messages, "Path is empty")
                 return true
             end
-            local data = State.vars[varName] or {}
             firebase.put(path, data, function(success)
                 if success then
-                    table.insert(State.messages, "Firebase PUT success")
+                    table.insert(State.messages, "PUT success")
                 else
-                    table.insert(State.messages, "Firebase PUT error")
+                    table.insert(State.messages, "PUT error")
                 end
             end)
             return true
+
+        elseif a.name == "firebasePatch" then
+            local paramStr = tostring(a.param or "")
+            local pathVar, dataVar = paramStr:match("^(.-)|(.+)$")
+            if not pathVar then pathVar = paramStr; dataVar = "_firebase_result" end
+            local path = State.vars[pathVar] or pathVar
+            local data = State.vars[dataVar] or {}
+            if path == "" then
+                table.insert(State.messages, "Path is empty")
+                return true
+            end
+            firebase.patch(path, data, function(success)
+                if success then
+                    table.insert(State.messages, "PATCH success")
+                else
+                    table.insert(State.messages, "PATCH error")
+                end
+            end)
+            return true
+
+        elseif a.name == "firebasePost" then
+            local paramStr = tostring(a.param or "")
+            local pathVar, dataVar = paramStr:match("^(.-)|(.+)$")
+            if not pathVar then pathVar = paramStr; dataVar = "_firebase_result" end
+            local path = State.vars[pathVar] or pathVar
+            local data = State.vars[dataVar] or {}
+            if path == "" then
+                table.insert(State.messages, "Path is empty")
+                return true
+            end
+            firebase.post(path, data, function(success)
+                if success then
+                    table.insert(State.messages, "POST success")
+                else
+                    table.insert(State.messages, "POST error")
+                end
+            end)
+            return true
+
+        elseif a.name == "firebaseDelete" then
+            local path = State.vars[p] or p
+            if path == "" then
+                table.insert(State.messages, "Path is empty")
+                return true
+            end
+            firebase.delete(path, function(success)
+                if success then
+                    table.insert(State.messages, "DELETE success")
+                else
+                    table.insert(State.messages, "DELETE error")
+                end
+            end)
+            return true
+
+        elseif a.name == "firebaseGetToken" then
+            local token = firebase.getToken() or ""
+            State.vars["_firebase_token"] = token
+            table.insert(State.messages, "Token: " .. token)
+            return true
+
+        elseif a.name == "firebaseSetResultVar" then
+            local varName = a.paramName or "result"
+            State.vars[varName] = State.vars["_firebase_result"]
+            table.insert(State.messages, "Result saved to var " .. varName)
+            return true
+
+        elseif a.name == "firebaseShowResult" then
+            local data = State.vars["_firebase_result"]
+            table.insert(State.messages, "Result: " .. tostring(data))
+            return true
+
+        elseif a.name == "firebaseOnSuccess" then
+            -- Условный блок, который выполняется, если предыдущий запрос удался
+            -- Просто пропускаем, т.к. логика сложная; можно реализовать через переменную статуса
+            table.insert(State.messages, "onSuccess block (not fully implemented)")
+            return true
+
+        elseif a.name == "firebaseOnError" then
+            table.insert(State.messages, "onError block (not fully implemented)")
+            return true
         end
 
-        if State.penDown and (a.name == "changeX" or a.name == "changeY" or a.name == "setX" or a.name == "setY" or a.name == "turn") then
-            table.insert(State.penPoints, {State.cubeX, State.cubeY, State.penColor[1], State.penColor[2], State.penColor[3], State.penSize})
-        end
-
+        -- Обработка вложенных блоков (контроль)
         if a.type == "control" and a.children then
             if a.name == "repeat" then
                 local times = tonumber(p) or 3
@@ -239,6 +316,10 @@ function M.executeActions(actions, env)
                     if M.executeActions(a.elseChildren or {}, env) then return true end
                 end
             end
+        end
+
+        if State.penDown and (a.name == "changeX" or a.name == "changeY" or a.name == "setX" or a.name == "setY" or a.name == "turn") then
+            table.insert(State.penPoints, {State.cubeX, State.cubeY, State.penColor[1], State.penColor[2], State.penColor[3], State.penSize})
         end
 
         i = i + 1
