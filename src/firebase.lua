@@ -1,122 +1,166 @@
 -- src/firebase.lua
 local M = {}
-local json = require("src.utils").json
 
--- Попытка загрузить LuaSocket (есть на Windows, на Android обычно нет)
-local hasSocket, http, ltn12, url = pcall(function()
-    return require("socket.http"), require("ltn12"), require("socket.url")
-end)
+local config = {
+    apiKey = nil,
+    dbURL = nil,
+    authToken = nil,
+    timeout = 5,
+    verifySSL = true,
+}
 
--- Если LuaSocket не загружен, будем использовать love.net (Android / fallback)
-local function useLoveNet()
-    if not love.net then
-        error("Neither LuaSocket nor love.net available")
+local function hasHttps()
+    local ok, _ = pcall(require, "https")
+    return ok
+end
+
+local function request(method, path, data, callback)
+    if not config.dbURL then
+        error("firebase: not initialized")
+    end
+    local url = config.dbURL .. "/" .. path .. ".json"
+    if config.authToken then
+        url = url .. "?auth=" .. config.authToken
+    end
+    local options = {
+        method = method,
+        headers = { ["Content-Type"] = "application/json" },
+        timeout = config.timeout,
+        verify = config.verifySSL,
+    }
+    if data then
+        options.data = data
+    end
+
+    local ok, code, body
+    if hasHttps() then
+        local https = require("https")
+        ok, code, body = pcall(https.request, url, options)
+    else
+        local http = require("socket.http")
+        local ltn12 = require("ltn12")
+        local response = {}
+        local res, code, headers = http.request {
+            url = url,
+            method = method,
+            headers = options.headers,
+            source = options.data and ltn12.source.string(options.data) or nil,
+            sink = ltn12.sink.table(response),
+            timeout = options.timeout,
+        }
+        if code and code >= 200 and code < 300 then
+            ok, code, body = true, code, table.concat(response)
+        else
+            ok, code, body = false, code, "HTTP error"
+        end
+    end
+
+    if ok and code and code >= 200 and code < 300 then
+        if callback then callback(true, body) end
+    else
+        if callback then callback(false, "Error: " .. tostring(code) .. " " .. tostring(body)) end
     end
 end
 
--- Вспомогательная функция: отправляет запрос и возвращает (data, code)
-local function request(method, fullUrl, data)
-    if hasSocket then
-        -- === Ветка LuaSocket (синхронно) ===
-        local parsed = url.parse(fullUrl)
-        if not parsed.host then
-            return nil, "Invalid URL"
-        end
-        local body = data and json.encode(data) or ""
-        local req = {
-            url = fullUrl,
-            method = method,
-            headers = {
-                ["Content-Type"] = "application/json",
-                ["Content-Length"] = tostring(#body),
-            },
-            source = ltn12.source.string(body),
-            sink = ltn12.sink.table({}),
+function M.init(options)
+    config.apiKey = options.apiKey or error("apiKey required")
+    config.dbURL = options.dbURL or error("dbURL required")
+    config.timeout = options.timeout or 5
+    config.verifySSL = options.verifySSL or true
+    config.authToken = nil
+end
+
+function M.authAnonymous(callback)
+    if not config.apiKey then
+        error("apiKey not set")
+    end
+    local authUrl = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" .. config.apiKey
+    local options = {
+        method = "POST",
+        headers = { ["Content-Type"] = "application/json" },
+        data = '{"returnSecureToken":true}',
+        timeout = config.timeout,
+        verify = config.verifySSL,
+    }
+    local ok, code, body
+    if hasHttps() then
+        local https = require("https")
+        ok, code, body = pcall(https.request, authUrl, options)
+    else
+        local http = require("socket.http")
+        local ltn12 = require("ltn12")
+        local response = {}
+        local res, code, headers = http.request {
+            url = authUrl,
+            method = "POST",
+            headers = options.headers,
+            source = ltn12.source.string(options.data),
+            sink = ltn12.sink.table(response),
+            timeout = options.timeout,
         }
-        local response_table = {}
-        local res, code, headers = http.request(req)
-        if code and code >= 200 and code < 300 then
-            local result = table.concat(response_table)
-            if result and result ~= "" then
-                local decoded = json.decode(result)
-                return decoded, code
-            end
-            return true, code  -- успех, но тело пустое
+        if code and code == 200 then
+            ok, code, body = true, code, table.concat(response)
         else
-            return nil, code or "Network error"
+            ok, code, body = false, code, "HTTP error"
+        end
+    end
+    if ok and code == 200 then
+        local data = love.data.decode("string", "json", body)
+        if data and data.idToken then
+            config.authToken = data.idToken
+            if callback then callback(true, data) end
+        else
+            if callback then callback(false, "Missing idToken") end
         end
     else
-        -- === Ветка love.net (асинхронно, но делаем синхронную обёртку через канал) ===
-        useLoveNet()
-        local channel = love.thread.getChannel("firebase_response")
-        local req = love.net.newHTTPRequest(method, fullUrl, {
-            ["Content-Type"] = "application/json"
-        }, data and json.encode(data) or nil)
+        if callback then callback(false, "Auth error: " .. tostring(code)) end
+    end
+end
 
-        req:setCallback(function(response)
-            local status = response:getStatus()
-            local body = response:getBody()
-            if status >= 200 and status < 300 then
-                if body and body ~= "" then
-                    local decoded = json.decode(body)
-                    channel:push({ok = true, data = decoded, code = status})
-                else
-                    channel:push({ok = true, data = true, code = status})
-                end
-            else
-                channel:push({ok = false, code = status})
-            end
-        end)
+function M.setToken(token)
+    config.authToken = token
+end
 
-        req:send()
-
-        -- Ждём ответа (блокируем поток до получения)
-        while true do
-            local resp = channel:pop()
-            if resp then
-                if resp.ok then
-                    return resp.data, resp.code
-                else
-                    return nil, resp.code
-                end
-            end
-            love.timer.sleep(0.01) -- не нагружаем процессор
+function M.get(path, callback)
+    request("GET", path, nil, function(success, data)
+        if success then
+            local decoded = love.data.decode("string", "json", data)
+            if callback then callback(true, decoded) end
+        else
+            if callback then callback(false, data) end
         end
-    end
+    end)
 end
 
--- ===== Публичные функции (интерфейс не меняется) =====
-function M.getFull(url)
-    local data, err = request("GET", url)
-    if err then
-        print("Firebase GET error:", err)
-        return nil
-    end
-    return data
+function M.put(path, data, callback)
+    local jsonData = love.data.encode("string", "json", data)
+    request("PUT", path, jsonData, function(success, body)
+        if callback then callback(success, body) end
+    end)
 end
 
-function M.putFull(url, data)
-    local result, err = request("PUT", url, data)
-    if err then
-        print("Firebase PUT error:", err)
-        return nil
-    end
-    return result
+function M.patch(path, data, callback)
+    local jsonData = love.data.encode("string", "json", data)
+    request("PATCH", path, jsonData, function(success, body)
+        if callback then callback(success, body) end
+    end)
 end
 
--- Для обратной совместимости со старым кодом (базовый URL + токен)
-M.baseURL = ""
-M.authToken = nil
-function M.setAuth(token) M.authToken = token end
-function M.get(path)
-    local full = M.baseURL .. path .. ".json"
-    if M.authToken then full = full .. "?auth=" .. M.authToken end
-    return M.getFull(full)
+function M.post(path, data, callback)
+    local jsonData = love.data.encode("string", "json", data)
+    request("POST", path, jsonData, function(success, body)
+        if callback then callback(success, body) end
+    end)
 end
-function M.put(path, data)
-    local full = M.baseURL .. path .. ".json"
-    if M.authToken then full = full .. "?auth=" .. M.authToken end
-    return M.putFull(full, data)
+
+function M.delete(path, callback)
+    request("DELETE", path, nil, function(success, body)
+        if callback then callback(success, body) end
+    end)
+end
+
+function M.getToken()
+    return config.authToken
 end
 
 return M
