@@ -7,191 +7,132 @@ local utils = require("src.utils")
 
 local M = {}
 
-function M.calculateHeights()
-    blocks.calculateHeights()
+local COLORS = {
+    primary_dark = {0, 0.18, 0.33},
+    primary_blue = {0, 0.30, 0.50},
+    bg_dark = {0, 0.12, 0.22},
+    accent_yellow = {1, 0.65, 0},
+    text_light = {1, 1, 1},
+    text_gray = {0.69, 0.77, 0.87},
+}
+
+function M.drawTopBar(title)
+    local w = love.graphics.getWidth()
+    local h = 56
+    
+    love.graphics.setColor(COLORS.primary_dark)
+    love.graphics.rectangle("fill", 0, 0, w, h)
+    
+    love.graphics.setColor(0, 0, 0, 0.3)
+    love.graphics.rectangle("fill", 0, h - 4, w, 4)
+    
+    love.graphics.setColor(COLORS.accent_yellow)
+    love.graphics.rectangle("fill", 16, 12, 32, 32, 6)
+    love.graphics.setColor(COLORS.primary_dark)
+    love.graphics.print("C", 26, 18, 0, 1.2)
+    
+    love.graphics.setColor(COLORS.text_light)
+    love.graphics.setFont(State.font)
+    love.graphics.print(title or "NewCatroid", 56, h/2 - 10)
+    
+    if State.currentScreen ~= "main" then
+        local btnX = w - 45
+        love.graphics.setColor(COLORS.text_light)
+        love.graphics.circle("fill", btnX, h/2, 18)
+        love.graphics.setColor(COLORS.primary_dark)
+        love.graphics.print("≡", btnX - 6, h/2 - 10, 0, 1.2)
+        
+        -- Кнопка назад
+        love.graphics.setColor(COLORS.text_light)
+        love.graphics.print("<", 10, h/2 - 10, 0, 1.2)
+    end
+    
+    State.topBarHeight = h
 end
 
-function M.drawTabs()
-    love.graphics.setColor(0.1,0.1,0.1)
-    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), 70)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Scenes:", 5, 5)
-    local sx = 70
-    for i, sc in ipairs(State.project.scenes) do
-        local w = love.graphics.getFont():getWidth(sc.name) + 15
-        love.graphics.setColor(State.currentSceneIdx == i and {0.4,0.7,1} or {0.3,0.3,0.3})
-        love.graphics.rectangle("fill", sx, 5, w, 25)
-        love.graphics.setColor(1,1,1)
-        love.graphics.print(sc.name, sx+5, 10)
-        sx = sx + w + 5
-    end
-    love.graphics.setColor(0.3,0.7,0.3)
-    love.graphics.rectangle("fill", sx, 5, 25, 25)
-    love.graphics.print("+", sx+5, 8)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print("Objects:", 5, 35)
-    local ox = 70
-    local scene = project.getCurrentScene()
-    if scene then
-        for i, obj in ipairs(scene.objects) do
-            local w = love.graphics.getFont():getWidth(obj.name) + 15
-            love.graphics.setColor(State.currentObjectIdx == i and {0.9,0.9,0.2} or {0.3,0.3,0.3})
-            love.graphics.rectangle("fill", ox, 35, w, 25)
-            love.graphics.setColor(1,1,1)
-            love.graphics.print(obj.name, ox+5, 40)
-            love.graphics.setColor(0.8,0.6,0.2)
-            love.graphics.rectangle("fill", ox+w+5, 35, 25, 25)
-            love.graphics.print("P", ox+w+7, 38)
-            love.graphics.setColor(0.4,0.5,1.0)
-            love.graphics.rectangle("fill", ox+w+35, 35, 25, 25)
-            love.graphics.print("F", ox+w+37, 38)
-            ox = ox + w + 65
-        end
-        love.graphics.setColor(0.3,0.7,0.3)
-        love.graphics.rectangle("fill", ox, 35, 25, 25)
-        love.graphics.print("+", ox+5, 38)
-    end
-end
-
-function M.drawButtons()
-    local rx = love.graphics.getWidth() - 50
-    love.graphics.setColor(0,1,0)
-    love.graphics.circle("fill", rx, 15, 22)
-    love.graphics.setColor(1,1,1)
-    love.graphics.print(">", rx-8, 5, 0, 1.6)
-    State.runButton = {x = rx, y = 15, r = 22}
-
-    local btnY = 50
-    love.graphics.setColor(0.2,0.5,1.0)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
-    love.graphics.print("Save .cat", love.graphics.getWidth()-145, btnY+8)
-    btnY = btnY + 35
-    love.graphics.setColor(0.2,0.5,1.0)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
-    love.graphics.print("Load .cat", love.graphics.getWidth()-145, btnY+8)
-    btnY = btnY + 35
-    love.graphics.setColor(0.7,0.7,0.2)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 68, 25)
-    love.graphics.print("Copy", love.graphics.getWidth()-145, btnY+5)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-78, btnY, 68, 25)
-    love.graphics.print("Paste", love.graphics.getWidth()-73, btnY+5)
-    btnY = btnY + 35
-    love.graphics.setColor(0.9,0.5,0.1)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
-    love.graphics.print("Variables", love.graphics.getWidth()-145, btnY+8)
-    btnY = btnY + 35
-    love.graphics.setColor(0.5,0.8,0.2)
-    love.graphics.rectangle("fill", love.graphics.getWidth()-150, btnY, 140, 30)
-    love.graphics.print("Import", love.graphics.getWidth()-145, btnY+8)
+function M.drawFAB()
+    local w = love.graphics.getWidth()
+    local h = love.graphics.getHeight()
+    
+    local playX = w - 70
+    local playY = h - 160
+    love.graphics.setColor(0, 0, 0, 0.3)
+    love.graphics.circle("fill", playX + 2, playY + 2, 28)
+    love.graphics.setColor(0.2, 0.8, 0.3)
+    love.graphics.circle("fill", playX, playY, 28)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("▶", playX - 8, playY - 12, 0, 1.5)
+    State.playButton = {x = playX, y = playY, r = 28}
+    
+    local addX = w - 70
+    local addY = h - 80
+    love.graphics.setColor(0, 0, 0, 0.3)
+    love.graphics.circle("fill", addX + 2, addY + 2, 28)
+    love.graphics.setColor(COLORS.accent_yellow)
+    love.graphics.circle("fill", addX, addY, 28)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("+", addX - 10, addY - 14, 0, 2)
+    State.addButton = {x = addX, y = addY, r = 28}
 end
 
 function M.drawMessages()
-    local msgY = State.workspaceStartY + 20 - State.workspaceScrollY
-    for _, msg in ipairs(State.messages) do
-        if msgY > 0 and msgY < love.graphics.getHeight() then
-            love.graphics.setColor(1,1,1)
-            love.graphics.print(utils.safeUTF8(msg), State.workspaceStartX, msgY)
+    local msgY = 70
+    local maxMessages = 5
+    local startIdx = math.max(1, #State.messages - maxMessages + 1)
+    
+    for i = startIdx, #State.messages do
+        local msg = State.messages[i]
+        if msgY < love.graphics.getHeight() - 20 then
+            love.graphics.setColor(0, 0, 0, 0.6)
+            local tw = love.graphics.getFont():getWidth(utils.safeUTF8(msg)) + 20
+            love.graphics.rectangle("fill", 10, msgY - 2, math.min(tw, love.graphics.getWidth() - 40), 26, 8)
+            
+            love.graphics.setColor(0.8, 0.9, 1)
+            love.graphics.print(utils.safeUTF8(msg), 18, msgY + 2)
+            msgY = msgY + 32
         end
-        msgY = msgY + State.fontSize + 4
     end
 end
 
-function M.handleClick(x, y)
-    if y <= 60 then
-        if y >= 5 and y <= 30 then
-            local sx = 70
-            for i, sc in ipairs(State.project.scenes) do
-                local w = love.graphics.getFont():getWidth(sc.name) + 15
-                if x >= sx and x <= sx+w then
-                    State.currentSceneIdx = i
-                    State.currentObjectIdx = 1
-                    blocks.updateWorkspace()
-                    runtime.compileScript()
-                    return true
-                end
-                sx = sx + w + 5
-            end
-            if x >= sx and x <= sx+25 then
-                table.insert(State.messages, "Add scene not implemented")
-                return true
-            end
-        elseif y >= 35 and y <= 60 then
-            local ox = 70
-            local scene = project.getCurrentScene()
-            if scene then
-                for i, obj in ipairs(scene.objects) do
-                    local w = love.graphics.getFont():getWidth(obj.name) + 15
-                    if x >= ox and x <= ox+w then
-                        State.currentObjectIdx = i
-                        blocks.updateWorkspace()
-                        runtime.compileScript()
-                        return true
-                    end
-                    if x >= ox+w+5 and x <= ox+w+30 then
-                        State.paintMode = true
-                        return true
-                    end
-                    if x >= ox+w+35 and x <= ox+w+60 then
-                        return true
-                    end
-                    ox = ox + w + 65
-                end
-                if x >= ox and x <= ox+25 then
-                    table.insert(State.messages, "Add object not implemented")
-                    return true
-                end
-            end
-        end
-    else
-        if State.runButton then
-            local bx, by, br = State.runButton.x, State.runButton.y, State.runButton.r
-            if (x - bx)^2 + (y - by)^2 <= (br + 10)^2 then
-                runtime.runProject()
-                table.insert(State.messages, "Project started!")
-                return true
-            end
-        end
+function M.handleTopBarClick(x, y)
+    if y > (State.topBarHeight or 56) then return false end
+    
+    if x < 40 and State.currentScreen ~= "main" then
+        State.currentScreen = "main"
+        return true
+    end
+    
+    return false
+end
 
-        local btnY = 50
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            State.inputMode = "save"
-            State.editingBlock = nil
-            State.editingText = ""
-            love.keyboard.setTextInput(true)
-            table.insert(State.messages, "Enter filename (without .cat):")
-            return true
-        end
-        btnY = btnY + 35
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            State.inputMode = "load"
-            State.editingBlock = nil
-            State.editingText = ""
-            love.keyboard.setTextInput(true)
-            table.insert(State.messages, "Enter filename to load (with .cat):")
-            return true
-        end
-        btnY = btnY + 35
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-82 and y >= btnY and y <= btnY+25 then
-            blocks.copyBlock()
-            return true
-        end
-        if x >= love.graphics.getWidth()-78 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+25 then
-            blocks.pasteBlock()
-            return true
-        end
-        btnY = btnY + 35
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            local msg = "Variables: "
-            for k,v in pairs(State.vars) do msg = msg .. k .. "=" .. tostring(v) .. " " end
-            table.insert(State.messages, msg)
-            return true
-        end
-        btnY = btnY + 35
-        if x >= love.graphics.getWidth()-150 and x <= love.graphics.getWidth()-10 and y >= btnY and y <= btnY+30 then
-            table.insert(State.messages, "Drag and drop a file (.png, .jpg, .cat) onto the window")
+function M.handleFABClick(x, y)
+    if State.playButton then
+        local b = State.playButton
+        if (x - b.x)^2 + (y - b.y)^2 <= (b.r + 5)^2 then
+            runtime.runProject()
+            table.insert(State.messages, "Project started!")
             return true
         end
     end
+    
+    if State.addButton then
+        local b = State.addButton
+        if (x - b.x)^2 + (y - b.y)^2 <= (b.r + 5)^2 then
+            if State.currentScreen == "main" then
+                State.showCreateProject = true
+                State.newProjectName = ""
+                love.keyboard.setTextInput(true)
+            else
+                table.insert(State.messages, "Add actor or object")
+            end
+            return true
+        end
+    end
+    
+    return false
+end
+
+function M.handleClick(x, y)
     return false
 end
 
