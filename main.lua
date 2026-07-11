@@ -22,7 +22,8 @@ function love.load()
     state.showCreateProject = false
     state.newProjectName = ""
     state.selectedOrientation = "portrait"
-    state.showCategories = false
+    state.selectedCategory = nil
+    state.showCategoryBlocks = false
     
     project.loadProjectList()
 end
@@ -34,6 +35,8 @@ function love.draw()
         drawMainScreen()
     elseif state.currentScreen == "project" then
         drawProjectScreen()
+    elseif state.currentScreen == "categories" then
+        drawCategoriesScreen()
     end
     
     if state.showCreateProject then
@@ -44,79 +47,47 @@ function love.draw()
     drawMessages()
 end
 
+-- ==================== MAIN SCREEN ====================
 function drawMainScreen()
     local w = love.graphics.getWidth()
     local h = love.graphics.getHeight()
     
     -- AppBar
-    love.graphics.setColor(0, 0.18, 0.33)
-    love.graphics.rectangle("fill", 0, 0, w, 56)
-    love.graphics.setColor(0, 0, 0, 0.3)
-    love.graphics.rectangle("fill", 0, 52, w, 4)
+    drawAppBar("Pocket Cat", false)
     
-    -- Иконка
-    love.graphics.setColor(1, 0.65, 0)
-    love.graphics.circle("fill", 28, 28, 16)
-    love.graphics.setColor(0, 0.18, 0.33)
-    love.graphics.circle("fill", 28, 28, 10)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("P", 22, 20, 0, 1.2)
-    
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("Pocket Cat", 52, 18)
-    
-    -- Кнопка информации
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.circle("fill", w - 30, 28, 16)
-    love.graphics.setColor(0, 0.18, 0.33)
-    love.graphics.print("i", w - 34, 20, 0, 1.2)
-    
-    -- Баннер с пандой
+    -- Banner with Panda
     local bannerY = 56
     local bannerH = 200
     love.graphics.setColor(0.45, 0.66, 0.26)
     love.graphics.rectangle("fill", 0, bannerY, w, bannerH)
     
-    -- Панда
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.ellipse("fill", w/2, bannerY + 90, 120, 100)
-    love.graphics.setColor(0.13, 0.13, 0.13)
-    love.graphics.circle("fill", w/2 - 80, bannerY + 50, 30)
-    love.graphics.circle("fill", w/2 + 80, bannerY + 50, 30)
-    love.graphics.ellipse("fill", w/2 - 38, bannerY + 82, 18, 24)
-    love.graphics.ellipse("fill", w/2 + 38, bannerY + 82, 18, 24)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.circle("fill", w/2 - 32, bannerY + 76, 7)
-    love.graphics.circle("fill", w/2 + 44, bannerY + 76, 7)
-    love.graphics.setColor(0.13, 0.13, 0.13)
-    love.graphics.polygon("fill", w/2 - 10, bannerY + 100, w/2 + 10, bannerY + 100, w/2, bannerY + 114)
+    -- Panda
+    drawPanda(w/2, bannerY + 90)
     
-    -- Кнопка редактирования баннера
+    -- Edit banner button
     love.graphics.setColor(1, 1, 1, 0.8)
     love.graphics.circle("fill", 40, bannerY + 40, 28)
     love.graphics.setColor(0.2, 0.2, 0.2)
     love.graphics.print("E", 32, bannerY + 30, 0, 1.4)
     
-    -- Кнопка Play на баннере
+    -- Play banner button
     love.graphics.setColor(1, 1, 1, 0.8)
     love.graphics.circle("fill", w - 40, bannerY + bannerH - 40, 28)
     love.graphics.setColor(0.2, 0.2, 0.2)
     love.graphics.print(">", w - 46, bannerY + bannerH - 50, 0, 1.4)
     
-    -- Секция проектов
+    -- Projects section
     local projY = bannerY + bannerH
     love.graphics.setColor(0, 0.21, 0.36)
     love.graphics.rectangle("fill", 0, projY, w, h - projY)
     
-    -- Заголовок
     love.graphics.setColor(0.69, 0.77, 0.87)
     love.graphics.print("Projects on device", 16, projY + 12)
     
-    -- Иконка папки
     love.graphics.setColor(0.69, 0.77, 0.87)
     love.graphics.print("F", w - 30, projY + 10)
     
-    -- Карточки проектов
+    -- Project cards
     local cardY = projY + 44
     local cardSize = 80
     local spacing = 16
@@ -146,7 +117,7 @@ function drawMainScreen()
         end
     end
     
-    -- Кнопка Add (FAB)
+    -- FAB Add button
     local addX = w - 60
     local addY = h - 80
     love.graphics.setColor(1, 0.65, 0)
@@ -160,42 +131,45 @@ function drawMainScreen()
     state.addButton = {x = addX, y = addY, r = 30}
 end
 
+-- ==================== PROJECT SCREEN ====================
 function drawProjectScreen()
     local w = love.graphics.getWidth()
     local h = love.graphics.getHeight()
     
     -- AppBar
-    love.graphics.setColor(0, 0.18, 0.33)
-    love.graphics.rectangle("fill", 0, 0, w, 56)
-    love.graphics.setColor(0, 0, 0, 0.3)
-    love.graphics.rectangle("fill", 0, 52, w, 4)
+    drawAppBar(state.currentProject and state.currentProject.name or "Untitled", true)
     
-    -- Кнопка назад
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("<", 12, 18, 0, 1.4)
-    
-    -- Название проекта
-    local title = state.currentProject and state.currentProject.name or "Untitled"
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print(title, 40, 18)
-    
-    -- Кнопка меню (категории)
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.circle("fill", w - 30, 28, 16)
-    love.graphics.setColor(0, 0.18, 0.33)
-    love.graphics.print("=", w - 34, 20, 0, 1.2)
-    
-    -- Фон сцены
+    -- Scene background
     local scene = project.getCurrentScene()
     love.graphics.setBackgroundColor(scene and scene.bgColor or {0.1, 0.1, 0.1})
     
-    -- Палитра и рабочая область
-    blocks.drawPalette()
+    -- Background selector
+    local bgY = 56
+    love.graphics.setColor(0, 0.30, 0.50)
+    love.graphics.rectangle("fill", state.paletteWidth, bgY, w - state.paletteWidth, 50)
+    
+    love.graphics.setColor(0.2, 0.2, 0.2)
+    love.graphics.rectangle("fill", state.paletteWidth + 10, bgY + 8, 40, 34, 6)
+    love.graphics.setColor(0.69, 0.77, 0.87)
+    love.graphics.print("Background", state.paletteWidth + 60, bgY + 16)
+    love.graphics.setColor(0.5, 0.5, 0.5)
+    love.graphics.print(">", w - 30, bgY + 16)
+    
+    -- Actors label
+    love.graphics.setColor(0.69, 0.77, 0.87)
+    love.graphics.print("Actors and objects", state.paletteWidth + 16, bgY + 58)
+    
+    -- Blocks palette and workspace
+    if state.showCategoryBlocks and state.selectedCategory then
+        blocks.drawCategoryBlocks(state.selectedCategory)
+    else
+        blocks.drawPalette()
+    end
     blocks.drawWorkspace()
     draw_objects.drawSceneObjects()
     
-    -- FAB кнопки
-    -- Play
+    -- FAB buttons
+    -- Play button
     local playX = w - 60
     local playY = h - 160
     love.graphics.setColor(1, 0.65, 0)
@@ -208,7 +182,7 @@ function drawProjectScreen()
     love.graphics.print(">", playX - 8, playY - 12, 0, 1.5)
     state.playButton = {x = playX, y = playY, r = 28}
     
-    -- Add
+    -- Add button
     local addX = w - 60
     local addY = h - 80
     love.graphics.setColor(1, 0.65, 0)
@@ -220,8 +194,60 @@ function drawProjectScreen()
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("+", addX - 10, addY - 14, 0, 2)
     state.addButtonProject = {x = addX, y = addY, r = 28}
+    
+    -- Back button for category blocks view
+    if state.showCategoryBlocks then
+        love.graphics.setColor(0.5, 0.5, 0.5, 0.8)
+        love.graphics.rectangle("fill", 10, h - 50, 100, 32, 8)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.print("Back to all", 22, h - 42)
+    end
 end
 
+-- ==================== CATEGORIES SCREEN ====================
+function drawCategoriesScreen()
+    local w = love.graphics.getWidth()
+    local h = love.graphics.getHeight()
+    
+    -- AppBar
+    drawAppBar("Categories", true)
+    
+    -- Category list with colors as in NewCatroid
+    local categories = {
+        {"Lego NXT", {1, 0.82, 0.32}},
+        {"Lego EV3", {0.97, 0.76, 0.19}},
+        {"Phiro", {0.18, 0.66, 0.71}},
+        {"Events", {0.82, 0.34, 0.15}},
+        {"Control", {0.96, 0.58, 0.39}},
+        {"Physics", {0.26, 0.56, 0.81}},
+        {"Sound", {0.24, 0.72, 0.44}},
+        {"Looks", {0.41, 0.21, 0.72}},
+        {"Pen", {0.12, 0.80, 0.28}},
+        {"Data", {0.80, 0.18, 0.18}},
+    }
+    
+    local y = 60
+    for _, cat in ipairs(categories) do
+        love.graphics.setColor(cat[2][1], cat[2][2], cat[2][3])
+        love.graphics.rectangle("fill", 0, y, w, 48)
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.print(cat[1], 20, y + 14)
+        
+        -- Save category position for click
+        state["category_" .. cat[1]] = {x = 0, y = y, w = w, h = 48}
+        y = y + 50
+    end
+    
+    -- Bottom toast
+    love.graphics.setColor(0.16, 0.71, 0.96)
+    love.graphics.rectangle("fill", 0, h - 48, w, 48)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print("All blocks by category. Select one.", 16, h - 34)
+    love.graphics.setColor(1, 1, 1, 0.8)
+    love.graphics.print("OK", w - 40, h - 34)
+end
+
+-- ==================== CREATE PROJECT MODAL ====================
 function drawCreateProjectModal()
     local w = love.graphics.getWidth()
     local h = love.graphics.getHeight()
@@ -277,7 +303,7 @@ function drawCreateProjectModal()
     love.graphics.print("Landscape", mx + 136, orientY + 14)
     state.orientLandscape = {x = mx + 130, y = orientY, w = 90, h = 46}
     
-    -- Кнопки
+    -- Buttons
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.rectangle("fill", mx + mw - 150, my + mh - 46, 55, 28, 6)
     love.graphics.setColor(1, 1, 1)
@@ -289,6 +315,53 @@ function drawCreateProjectModal()
     love.graphics.setColor(1, 1, 1)
     love.graphics.print("Create", mx + mw - 74, my + mh - 40)
     state.modalCreate = {x = mx + mw - 85, y = my + mh - 46, w = 65, h = 28}
+end
+
+-- ==================== HELPERS ====================
+function drawAppBar(title, hasBack)
+    local w = love.graphics.getWidth()
+    local h = 56
+    
+    love.graphics.setColor(0, 0.18, 0.33)
+    love.graphics.rectangle("fill", 0, 0, w, h)
+    love.graphics.setColor(0, 0, 0, 0.3)
+    love.graphics.rectangle("fill", 0, h - 4, w, 4)
+    
+    -- Logo
+    love.graphics.setColor(1, 0.65, 0)
+    love.graphics.rectangle("fill", 12, 12, 32, 32, 6)
+    love.graphics.setColor(0, 0.18, 0.33)
+    love.graphics.print("C", 22, 18, 0, 1.2)
+    
+    -- Title
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.print(title, 52, 18)
+    
+    if hasBack then
+        love.graphics.setColor(1, 1, 1)
+        love.graphics.print("<", 12, 18, 0, 1.4)
+    end
+    
+    -- Menu button
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.circle("fill", w - 30, 28, 16)
+    love.graphics.setColor(0, 0.18, 0.33)
+    love.graphics.print("=", w - 34, 20, 0, 1.2)
+end
+
+function drawPanda(cx, cy)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.ellipse("fill", cx, cy, 120, 100)
+    love.graphics.setColor(0.13, 0.13, 0.13)
+    love.graphics.circle("fill", cx - 80, cy - 40, 30)
+    love.graphics.circle("fill", cx + 80, cy - 40, 30)
+    love.graphics.ellipse("fill", cx - 38, cy - 8, 18, 24)
+    love.graphics.ellipse("fill", cx + 38, cy - 8, 18, 24)
+    love.graphics.setColor(1, 1, 1)
+    love.graphics.circle("fill", cx - 32, cy - 14, 7)
+    love.graphics.circle("fill", cx + 44, cy - 14, 7)
+    love.graphics.setColor(0.13, 0.13, 0.13)
+    love.graphics.polygon("fill", cx - 10, cy + 10, cx + 10, cy + 10, cx, cy + 24)
 end
 
 function drawMessages()
@@ -309,6 +382,7 @@ function drawMessages()
     end
 end
 
+-- ==================== INPUT HANDLERS ====================
 function love.update(dt)
     blocks.updateScrolling(dt)
     runtime.update(dt)
@@ -327,30 +401,33 @@ function love.mousepressed(x, y, button)
         return
     end
     
-    -- AppBar клики
+    -- AppBar clicks
     if y <= 56 then
-        -- Назад
         if x < 40 and state.currentScreen ~= "main" then
-            state.currentScreen = "main"
+            if state.currentScreen == "categories" then
+                state.currentScreen = "project"
+            else
+                state.currentScreen = "main"
+            end
             return
         end
-        -- Меню категорий (в проекте)
         if state.currentScreen == "project" and x > love.graphics.getWidth() - 50 then
-            state.showCategories = not state.showCategories
+            state.currentScreen = "categories"
             return
         end
         return
     end
     
     if state.currentScreen == "main" then
-        handleMainScreenClick(x, y)
+        handleMainClick(x, y)
     elseif state.currentScreen == "project" then
-        handleProjectScreenClick(x, y)
+        handleProjectClick(x, y)
+    elseif state.currentScreen == "categories" then
+        handleCategoriesClick(x, y)
     end
 end
 
-function handleMainScreenClick(x, y)
-    -- Кнопка Add
+function handleMainClick(x, y)
     if state.addButton then
         local b = state.addButton
         if (x - b.x)^2 + (y - b.y)^2 <= (b.r + 5)^2 then
@@ -362,7 +439,6 @@ function handleMainScreenClick(x, y)
         end
     end
     
-    -- Карточки проектов
     for i, proj in ipairs(state.projects) do
         local card = state["project_card_" .. i]
         if card then
@@ -371,14 +447,28 @@ function handleMainScreenClick(x, y)
                 state.currentProject = proj
                 project.loadProject(proj.filename)
                 state.currentScreen = "project"
+                state.showCategoryBlocks = false
+                state.selectedCategory = nil
                 return
             end
         end
     end
 end
 
-function handleProjectScreenClick(x, y)
-    -- FAB кнопки
+function handleProjectClick(x, y)
+    local w = love.graphics.getWidth()
+    local h = love.graphics.getHeight()
+    
+    -- Back to all blocks button
+    if state.showCategoryBlocks then
+        if x >= 10 and x <= 110 and y >= h - 50 and y <= h - 18 then
+            state.showCategoryBlocks = false
+            state.selectedCategory = nil
+            return
+        end
+    end
+    
+    -- Play button
     if state.playButton then
         local b = state.playButton
         if (x - b.x)^2 + (y - b.y)^2 <= (b.r + 5)^2 then
@@ -388,6 +478,7 @@ function handleProjectScreenClick(x, y)
         end
     end
     
+    -- Add button
     if state.addButtonProject then
         local b = state.addButtonProject
         if (x - b.x)^2 + (y - b.y)^2 <= (b.r + 5)^2 then
@@ -396,11 +487,40 @@ function handleProjectScreenClick(x, y)
         end
     end
     
-    -- Блоки
+    -- Background selector
+    local bgY = 56
+    if y >= bgY and y <= bgY + 50 and x > state.paletteWidth then
+        state.currentScreen = "categories"
+        return
+    end
+    
+    -- Blocks
     if x <= state.paletteWidth then
-        blocks.paletteClick(x, y)
+        if state.showCategoryBlocks then
+            blocks.categoryBlockClick(x, y)
+        else
+            blocks.paletteClick(x, y)
+        end
     else
         blocks.workspaceClick(x, y)
+    end
+end
+
+function handleCategoriesClick(x, y)
+    local categories = {"Lego NXT", "Lego EV3", "Phiro", "Events", "Control", "Physics", "Sound", "Looks", "Pen", "Data"}
+    
+    for _, catName in ipairs(categories) do
+        local rect = state["category_" .. catName]
+        if rect then
+            if x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h then
+                -- Selected category
+                state.selectedCategory = catName:lower()
+                state.showCategoryBlocks = true
+                state.currentScreen = "project"
+                table.insert(state.messages, "Category: " .. catName)
+                return
+            end
+        end
     end
 end
 
