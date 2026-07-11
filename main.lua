@@ -90,28 +90,44 @@ function drawMainScreen()
     love.graphics.setColor(0.69, 0.77, 0.87)
     love.graphics.print("Projects on device", 16, projY + 10)
     
-    local cardY = projY + 40
-    local cardSize = 80
-    local spacing = 16
-    local startX = 16
+    -- Список проектов (текстовый, без картинок)
+    local listY = projY + 40
+    local itemHeight = 40
     
     for i, proj in ipairs(state.projects) do
-        local x = startX + (i - 1) * (cardSize + spacing)
-        if x + cardSize < w then
+        local y = listY + (i - 1) * itemHeight
+        if y < h then
             local isActive = (i == state.currentProjectIndex)
-            love.graphics.setColor(0.1, 0.1, 0.1)
-            love.graphics.rectangle("fill", x, cardY, cardSize, cardSize, 10)
+            
+            -- Фон элемента
+            if isActive then
+                love.graphics.setColor(0.13, 0.53, 0.95, 0.3)
+            else
+                love.graphics.setColor(0.1, 0.1, 0.1)
+            end
+            love.graphics.rectangle("fill", 16, y, w - 32, itemHeight - 4, 6)
+            
+            -- Рамка для активного
             if isActive then
                 love.graphics.setColor(0.13, 0.53, 0.95)
                 love.graphics.setLineWidth(2)
-                love.graphics.rectangle("line", x, cardY, cardSize, cardSize, 10)
+                love.graphics.rectangle("line", 16, y, w - 32, itemHeight - 4, 6)
                 love.graphics.setLineWidth(1)
             end
-            love.graphics.setColor(0.8, 0.8, 0.8)
-            local name = proj.name:sub(1, 8)
-            love.graphics.print(name, x + 8, cardY + cardSize - 20, 0, 0.7)
             
-            state["project_card_" .. i] = {x = x, y = cardY, w = cardSize, h = cardSize}
+            -- Имя проекта
+            love.graphics.setColor(0.8, 0.8, 0.8)
+            love.graphics.print(proj.name, 28, y + 10)
+            
+            -- Маленький индикатор ориентации
+            love.graphics.setColor(0.5, 0.5, 0.5)
+            if proj.orientation == "portrait" then
+                love.graphics.print("[P]", w - 60, y + 10)
+            else
+                love.graphics.print("[L]", w - 60, y + 10)
+            end
+            
+            state["project_item_" .. i] = {x = 16, y = y, w = w - 32, h = itemHeight - 4}
         end
     end
     
@@ -247,9 +263,9 @@ function handleMainScreenClick(x, y)
     end
     
     for i, proj in ipairs(state.projects) do
-        local card = state["project_card_" .. i]
-        if card then
-            if x >= card.x and x <= card.x + card.w and y >= card.y and y <= card.y + card.h then
+        local item = state["project_item_" .. i]
+        if item then
+            if x >= item.x and x <= item.x + item.w and y >= item.y and y <= item.y + item.h then
                 state.currentProjectIndex = i
                 state.currentProject = proj
                 project.loadProject(proj.filename)
