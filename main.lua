@@ -49,7 +49,7 @@ function drawMainScreen()
     local h = love.graphics.getHeight()
     local topBar = 56
     
-    ui.drawTopBar("NewCatroid")
+    ui.drawTopBar("Pocket Cat")
     
     local bannerY = topBar
     local bannerH = 180
@@ -74,14 +74,14 @@ function drawMainScreen()
     love.graphics.setColor(1, 1, 1, 0.8)
     love.graphics.circle("fill", editX + 20, editY + 20, 25)
     love.graphics.setColor(0.2, 0.2, 0.2)
-    love.graphics.print("✎", editX + 12, editY + 10, 0, 1.4)
+    love.graphics.print("E", editX + 14, editY + 10, 0, 1.2)
     
     local playX = w - 50
     local playY = bannerY + bannerH - 50
     love.graphics.setColor(1, 1, 1, 0.8)
     love.graphics.circle("fill", playX, playY, 25)
     love.graphics.setColor(0.2, 0.2, 0.2)
-    love.graphics.print("▶", playX - 8, playY - 10, 0, 1.4)
+    love.graphics.print(">", playX - 6, playY - 10, 0, 1.4)
     
     local projY = bannerY + bannerH + 10
     love.graphics.setColor(0, 0.21, 0.36)
@@ -108,7 +108,8 @@ function drawMainScreen()
                 love.graphics.setLineWidth(1)
             end
             love.graphics.setColor(0.8, 0.8, 0.8)
-            love.graphics.print(proj.name:sub(1, 8), x + 8, cardY + cardSize - 20, 0, 0.7)
+            local name = proj.name:sub(1, 8)
+            love.graphics.print(name, x + 8, cardY + cardSize - 20, 0, 0.7)
             
             state["project_card_" .. i] = {x = x, y = cardY, w = cardSize, h = cardSize}
         end
@@ -123,7 +124,7 @@ function drawMainScreen()
     love.graphics.setColor(1, 0.65, 0)
     love.graphics.circle("fill", addX, addY, 30)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print("+", addX - 10, addY - 16, 0, 2.2)
+    love.graphics.print("+", addX - 10, addY - 16, 0, 2)
     state.addButton = {x = addX, y = addY, r = 30}
 end
 
@@ -182,20 +183,20 @@ function drawCreateProjectModal()
     love.graphics.setColor(isPortrait and 1 or 0.3, isPortrait and 0.65 or 0.3, isPortrait and 0 or 0.3)
     love.graphics.rectangle("fill", mx + 20, orientY, 100, 50, 8)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print("Portrait", mx + 36, orientY + 16)
+    love.graphics.print("Portrait", mx + 30, orientY + 16)
     state.orientPortrait = {x = mx + 20, y = orientY, w = 100, h = 50}
     
     local isLandscape = (state.selectedOrientation == "landscape")
     love.graphics.setColor(isLandscape and 1 or 0.3, isLandscape and 0.65 or 0.3, isLandscape and 0 or 0.3)
     love.graphics.rectangle("fill", mx + 140, orientY, 100, 50, 8)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print("Landscape", mx + 148, orientY + 16)
+    love.graphics.print("Landscape", mx + 145, orientY + 16)
     state.orientLandscape = {x = mx + 140, y = orientY, w = 100, h = 50}
     
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.rectangle("fill", mx + mw - 160, my + mh - 50, 60, 30, 6)
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print("Cancel", mx + mw - 148, my + mh - 42)
+    love.graphics.print("Cancel", mx + mw - 150, my + mh - 42)
     state.modalCancel = {x = mx + mw - 160, y = my + mh - 50, w = 60, h = 30}
     
     love.graphics.setColor(1, 0.65, 0)
