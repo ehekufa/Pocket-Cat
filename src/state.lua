@@ -10,6 +10,7 @@ local State = {
     showCreateProject = false,
     newProjectName = "",
     selectedOrientation = "portrait",
+    showCategories = false,
 
     paletteBlocks = {},
     workspaceBlocks = {},
