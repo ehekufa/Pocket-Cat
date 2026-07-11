@@ -3,6 +3,13 @@ local State = {
     project = nil,
     currentSceneIdx = 1,
     currentObjectIdx = 1,
+    currentScreen = "main",
+    currentProject = nil,
+    currentProjectIndex = 1,
+    projects = {},
+    showCreateProject = false,
+    newProjectName = "",
+    selectedOrientation = "portrait",
 
     paletteBlocks = {},
     workspaceBlocks = {},
@@ -13,9 +20,9 @@ local State = {
 
     workspaceStartX = 210,
     workspaceStartY = 80,
-    blockWidth = 175,
+    blockWidth = 160,
     blockHeight = 34,
-    blockSpacing = 8,
+    blockSpacing = 6,
     workspaceScrollY = 0,
     workspaceContentHeight = 0,
 
@@ -30,9 +37,8 @@ local State = {
 
     editingBlock = nil,
     editingText = "",
-    inputMode = nil,   -- "save", "load" или nil
+    inputMode = nil,
 
-    -- Paint
     paintMode = false,
     paintCanvas = nil,
     paintWidth = 64,
@@ -57,7 +63,6 @@ local State = {
     rectStart = nil,
     ellipseStart = nil,
 
-    -- Runtime
     eventHandlers = {},
     stopAll = false,
     waitTimer = 0,
@@ -73,7 +78,6 @@ local State = {
     vars = {},
     varList = {},
 
-    -- Objects
     showCube = false,
     showSphere = false,
     showImage = false,
@@ -87,13 +91,15 @@ local State = {
     cubeVertices = {{-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},{-1,-1,1},{1,-1,1},{1,1,1},{-1,1,1}},
     cubeEdges = {{1,2},{2,3},{3,4},{4,1},{5,6},{6,7},{7,8},{8,5},{1,5},{2,6},{3,7},{4,8}},
 
-    -- Misc
     font = nil,
     fontSize = 16,
     clipboard = nil,
     bgColor = {0.1, 0.1, 0.1},
+    topBarHeight = 56,
+    windowWidth = 1024,
+    windowHeight = 768,
+    keyboardVisible = false,
     
-    -- Colors (перенесены из constants.lua)
     catColors = {
         event = {0.9,0.6,0.2},
         motion = {0.2,0.6,0.9},
@@ -110,10 +116,8 @@ local State = {
 }
 
 function State.init()
-    -- Загружаем палитру из constants.lua только при инициализации
     local constants = require("src.constants")
     State.paletteBlocks = constants.paletteBlocks
-    -- catColors уже определён в State
 end
 
 return State
