@@ -10,7 +10,8 @@ local State = {
     showCreateProject = false,
     newProjectName = "",
     selectedOrientation = "portrait",
-    showCategories = false,
+    selectedCategory = nil,
+    showCategoryBlocks = false,
 
     paletteBlocks = {},
     workspaceBlocks = {},
@@ -19,8 +20,8 @@ local State = {
     paletteScrollY = 0,
     paletteContentHeight = 0,
 
-    workspaceStartX = 210,
-    workspaceStartY = 80,
+    workspaceStartX = 216,
+    workspaceStartY = 106,
     blockWidth = 160,
     blockHeight = 34,
     blockSpacing = 6,
@@ -29,8 +30,6 @@ local State = {
 
     draggingBlock = nil,
     dragFromPalette = false,
-    dragSourceParent = nil,
-    dragSourceIndex = nil,
 
     longPressBlockIdx = nil,
     longPressStartTime = 0,
@@ -56,7 +55,6 @@ local State = {
     paintPresetSizes = {{64,64}, {32,32}, {16,16}, {128,128}, {200,146}},
     paintCustomStep = 0,
     paintCustomInputText = "",
-    paintCustomX = nil,
     paintHue = 0,
     paintSaturation = 1,
     paintValue = 1,
@@ -74,10 +72,8 @@ local State = {
     penColor = {1,0,0},
     penSize = 2,
     penPoints = {},
-    drawCommands = {},
     messages = {},
     vars = {},
-    varList = {},
 
     showCube = false,
     showSphere = false,
@@ -96,24 +92,7 @@ local State = {
     fontSize = 16,
     clipboard = nil,
     bgColor = {0.1, 0.1, 0.1},
-    topBarHeight = 56,
-    windowWidth = 1024,
-    windowHeight = 768,
     keyboardVisible = false,
-    
-    catColors = {
-        event = {0.9,0.6,0.2},
-        motion = {0.2,0.6,0.9},
-        looks = {0.7,0.3,0.9},
-        sound = {0.3,0.9,0.4},
-        control = {1.0,0.8,0.2},
-        variables = {0.9,0.2,0.2},
-        draw = {0.2,0.8,0.8},
-        text = {1.0,1.0,1.0},
-        sensing = {0.7,0.7,0.7},
-        pen = {0.2,1.0,0.4},
-        cloud = {0.2,0.6,1.0}
-    }
 }
 
 function State.init()
