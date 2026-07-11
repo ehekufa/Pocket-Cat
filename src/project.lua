@@ -8,19 +8,74 @@ local M = {}
 
 function M.defaultProject()
     return {
+        name = "Untitled",
+        orientation = "portrait",
         scenes = {{
             name = "Scene 1",
-            bgColor = {0.2,0.2,0.4},
+            bgColor = {0.2, 0.2, 0.4},
             blocks = {},
             objects = {{
                 name = "Object 1",
                 x = 200,
                 y = 200,
                 image = nil,
+                sound = nil,
+                loadedImage = nil,
             }}
-        }},
-        orientation = "portrait"
+        }}
     }
+end
+
+function M.createNewProject(name, orientation)
+    local proj = M.defaultProject()
+    proj.name = name or "Untitled"
+    proj.orientation = orientation or "portrait"
+    
+    local filename = name:gsub("%s+", "_"):lower() .. ".cat"
+    local json = utils.json.encode(proj)
+    love.filesystem.write(filename, json)
+    
+    return {
+        name = name,
+        filename = filename,
+        orientation = orientation or "portrait",
+        data = proj
+    }
+end
+
+function M.loadProjectList()
+    State.projects = {}
+    local items = love.filesystem.getDirectoryItems(".")
+    for _, item in ipairs(items) do
+        if item:match("%.cat$") then
+            local contents = love.filesystem.read(item)
+            if contents then
+                local data = utils.json.decode(contents)
+                if data and data.name then
+                    table.insert(State.projects, {
+                        name = data.name,
+                        filename = item,
+                        orientation = data.orientation or "portrait",
+                        data = data
+                    })
+                end
+            end
+        end
+    end
+    
+    if #State.projects == 0 then
+        local default = M.createNewProject("My Project", "portrait")
+        table.insert(State.projects, default)
+        State.currentProject = default
+        State.currentProjectIndex = 1
+    else
+        State.currentProject = State.projects[1]
+        State.currentProjectIndex = 1
+    end
+    
+    if State.currentProject then
+        M.loadProject(State.currentProject.filename)
+    end
 end
 
 function M.getCurrentScene()
