@@ -47,36 +47,29 @@ function love.draw()
     drawMessages()
 end
 
--- ==================== MAIN SCREEN ====================
 function drawMainScreen()
     local w = love.graphics.getWidth()
     local h = love.graphics.getHeight()
     
-    -- AppBar
     drawAppBar("Pocket Cat", false)
     
-    -- Banner with Panda
     local bannerY = 56
     local bannerH = 200
     love.graphics.setColor(0.45, 0.66, 0.26)
     love.graphics.rectangle("fill", 0, bannerY, w, bannerH)
     
-    -- Panda
     drawPanda(w/2, bannerY + 90)
     
-    -- Edit banner button
     love.graphics.setColor(1, 1, 1, 0.8)
     love.graphics.circle("fill", 40, bannerY + 40, 28)
     love.graphics.setColor(0.2, 0.2, 0.2)
     love.graphics.print("E", 32, bannerY + 30, 0, 1.4)
     
-    -- Play banner button
     love.graphics.setColor(1, 1, 1, 0.8)
     love.graphics.circle("fill", w - 40, bannerY + bannerH - 40, 28)
     love.graphics.setColor(0.2, 0.2, 0.2)
     love.graphics.print(">", w - 46, bannerY + bannerH - 50, 0, 1.4)
     
-    -- Projects section
     local projY = bannerY + bannerH
     love.graphics.setColor(0, 0.21, 0.36)
     love.graphics.rectangle("fill", 0, projY, w, h - projY)
@@ -87,7 +80,6 @@ function drawMainScreen()
     love.graphics.setColor(0.69, 0.77, 0.87)
     love.graphics.print("F", w - 30, projY + 10)
     
-    -- Project cards
     local cardY = projY + 44
     local cardSize = 80
     local spacing = 16
@@ -117,7 +109,6 @@ function drawMainScreen()
         end
     end
     
-    -- FAB Add button
     local addX = w - 60
     local addY = h - 80
     love.graphics.setColor(1, 0.65, 0)
@@ -131,19 +122,15 @@ function drawMainScreen()
     state.addButton = {x = addX, y = addY, r = 30}
 end
 
--- ==================== PROJECT SCREEN ====================
 function drawProjectScreen()
     local w = love.graphics.getWidth()
     local h = love.graphics.getHeight()
     
-    -- AppBar
     drawAppBar(state.currentProject and state.currentProject.name or "Untitled", true)
     
-    -- Scene background
     local scene = project.getCurrentScene()
     love.graphics.setBackgroundColor(scene and scene.bgColor or {0.1, 0.1, 0.1})
     
-    -- Background selector
     local bgY = 56
     love.graphics.setColor(0, 0.30, 0.50)
     love.graphics.rectangle("fill", state.paletteWidth, bgY, w - state.paletteWidth, 50)
@@ -155,11 +142,9 @@ function drawProjectScreen()
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.print(">", w - 30, bgY + 16)
     
-    -- Actors label
     love.graphics.setColor(0.69, 0.77, 0.87)
     love.graphics.print("Actors and objects", state.paletteWidth + 16, bgY + 58)
     
-    -- Blocks palette and workspace
     if state.showCategoryBlocks and state.selectedCategory then
         blocks.drawCategoryBlocks(state.selectedCategory)
     else
@@ -168,8 +153,6 @@ function drawProjectScreen()
     blocks.drawWorkspace()
     draw_objects.drawSceneObjects()
     
-    -- FAB buttons
-    -- Play button
     local playX = w - 60
     local playY = h - 160
     love.graphics.setColor(1, 0.65, 0)
@@ -182,7 +165,6 @@ function drawProjectScreen()
     love.graphics.print(">", playX - 8, playY - 12, 0, 1.5)
     state.playButton = {x = playX, y = playY, r = 28}
     
-    -- Add button
     local addX = w - 60
     local addY = h - 80
     love.graphics.setColor(1, 0.65, 0)
@@ -195,7 +177,6 @@ function drawProjectScreen()
     love.graphics.print("+", addX - 10, addY - 14, 0, 2)
     state.addButtonProject = {x = addX, y = addY, r = 28}
     
-    -- Back button for category blocks view
     if state.showCategoryBlocks then
         love.graphics.setColor(0.5, 0.5, 0.5, 0.8)
         love.graphics.rectangle("fill", 10, h - 50, 100, 32, 8)
@@ -204,15 +185,12 @@ function drawProjectScreen()
     end
 end
 
--- ==================== CATEGORIES SCREEN ====================
 function drawCategoriesScreen()
     local w = love.graphics.getWidth()
     local h = love.graphics.getHeight()
     
-    -- AppBar
     drawAppBar("Categories", true)
     
-    -- Category list with colors as in NewCatroid
     local categories = {
         {"Lego NXT", {1, 0.82, 0.32}},
         {"Lego EV3", {0.97, 0.76, 0.19}},
@@ -233,12 +211,10 @@ function drawCategoriesScreen()
         love.graphics.setColor(1, 1, 1)
         love.graphics.print(cat[1], 20, y + 14)
         
-        -- Save category position for click
         state["category_" .. cat[1]] = {x = 0, y = y, w = w, h = 48}
         y = y + 50
     end
     
-    -- Bottom toast
     love.graphics.setColor(0.16, 0.71, 0.96)
     love.graphics.rectangle("fill", 0, h - 48, w, 48)
     love.graphics.setColor(1, 1, 1)
@@ -247,7 +223,6 @@ function drawCategoriesScreen()
     love.graphics.print("OK", w - 40, h - 34)
 end
 
--- ==================== CREATE PROJECT MODAL ====================
 function drawCreateProjectModal()
     local w = love.graphics.getWidth()
     local h = love.graphics.getHeight()
@@ -287,7 +262,6 @@ function drawCreateProjectModal()
     love.graphics.print("Orientation", mx + 20, my + 126)
     
     local orientY = my + 146
-    -- Portrait
     local isPortrait = (state.selectedOrientation == "portrait")
     love.graphics.setColor(isPortrait and 1 or 0.3, isPortrait and 0.65 or 0.3, isPortrait and 0 or 0.3)
     love.graphics.rectangle("fill", mx + 20, orientY, 90, 46, 8)
@@ -295,7 +269,6 @@ function drawCreateProjectModal()
     love.graphics.print("Portrait", mx + 34, orientY + 14)
     state.orientPortrait = {x = mx + 20, y = orientY, w = 90, h = 46}
     
-    -- Landscape
     local isLandscape = (state.selectedOrientation == "landscape")
     love.graphics.setColor(isLandscape and 1 or 0.3, isLandscape and 0.65 or 0.3, isLandscape and 0 or 0.3)
     love.graphics.rectangle("fill", mx + 130, orientY, 90, 46, 8)
@@ -303,7 +276,6 @@ function drawCreateProjectModal()
     love.graphics.print("Landscape", mx + 136, orientY + 14)
     state.orientLandscape = {x = mx + 130, y = orientY, w = 90, h = 46}
     
-    -- Buttons
     love.graphics.setColor(0.5, 0.5, 0.5)
     love.graphics.rectangle("fill", mx + mw - 150, my + mh - 46, 55, 28, 6)
     love.graphics.setColor(1, 1, 1)
@@ -317,7 +289,6 @@ function drawCreateProjectModal()
     state.modalCreate = {x = mx + mw - 85, y = my + mh - 46, w = 65, h = 28}
 end
 
--- ==================== HELPERS ====================
 function drawAppBar(title, hasBack)
     local w = love.graphics.getWidth()
     local h = 56
@@ -327,13 +298,11 @@ function drawAppBar(title, hasBack)
     love.graphics.setColor(0, 0, 0, 0.3)
     love.graphics.rectangle("fill", 0, h - 4, w, 4)
     
-    -- Logo
     love.graphics.setColor(1, 0.65, 0)
     love.graphics.rectangle("fill", 12, 12, 32, 32, 6)
     love.graphics.setColor(0, 0.18, 0.33)
     love.graphics.print("C", 22, 18, 0, 1.2)
     
-    -- Title
     love.graphics.setColor(1, 1, 1)
     love.graphics.print(title, 52, 18)
     
@@ -342,7 +311,6 @@ function drawAppBar(title, hasBack)
         love.graphics.print("<", 12, 18, 0, 1.4)
     end
     
-    -- Menu button
     love.graphics.setColor(1, 1, 1)
     love.graphics.circle("fill", w - 30, 28, 16)
     love.graphics.setColor(0, 0.18, 0.33)
@@ -382,7 +350,6 @@ function drawMessages()
     end
 end
 
--- ==================== INPUT HANDLERS ====================
 function love.update(dt)
     blocks.updateScrolling(dt)
     runtime.update(dt)
@@ -401,7 +368,6 @@ function love.mousepressed(x, y, button)
         return
     end
     
-    -- AppBar clicks
     if y <= 56 then
         if x < 40 and state.currentScreen ~= "main" then
             if state.currentScreen == "categories" then
@@ -459,7 +425,6 @@ function handleProjectClick(x, y)
     local w = love.graphics.getWidth()
     local h = love.graphics.getHeight()
     
-    -- Back to all blocks button
     if state.showCategoryBlocks then
         if x >= 10 and x <= 110 and y >= h - 50 and y <= h - 18 then
             state.showCategoryBlocks = false
@@ -468,7 +433,6 @@ function handleProjectClick(x, y)
         end
     end
     
-    -- Play button
     if state.playButton then
         local b = state.playButton
         if (x - b.x)^2 + (y - b.y)^2 <= (b.r + 5)^2 then
@@ -478,7 +442,6 @@ function handleProjectClick(x, y)
         end
     end
     
-    -- Add button
     if state.addButtonProject then
         local b = state.addButtonProject
         if (x - b.x)^2 + (y - b.y)^2 <= (b.r + 5)^2 then
@@ -487,14 +450,12 @@ function handleProjectClick(x, y)
         end
     end
     
-    -- Background selector
     local bgY = 56
     if y >= bgY and y <= bgY + 50 and x > state.paletteWidth then
         state.currentScreen = "categories"
         return
     end
     
-    -- Blocks
     if x <= state.paletteWidth then
         if state.showCategoryBlocks then
             blocks.categoryBlockClick(x, y)
@@ -513,7 +474,6 @@ function handleCategoriesClick(x, y)
         local rect = state["category_" .. catName]
         if rect then
             if x >= rect.x and x <= rect.x + rect.w and y >= rect.y and y <= rect.y + rect.h then
-                -- Selected category
                 state.selectedCategory = catName:lower()
                 state.showCategoryBlocks = true
                 state.currentScreen = "project"
