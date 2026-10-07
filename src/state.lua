@@ -33,6 +33,9 @@ local State = {
     -- paint
     paintMode = false,
     paintOnSave = nil,
+    paintWidth = 96,
+    paintHeight = 96,
+    paintScale = 1,
 
     -- прочее
     font = nil,

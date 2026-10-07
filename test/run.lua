@@ -3,6 +3,7 @@
 dofile("test/mock_love.lua")
 dofile("main.lua")
 love.load()
+love.resize(1280, 800) -- ранний resize (как на Android) не должен падать
 
 local State = require("src.state")
 local ui = require("src.ui")

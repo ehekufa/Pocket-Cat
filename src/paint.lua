@@ -25,8 +25,10 @@ function M.openFor(onSave)
 end
 
 function M.recalcScale()
+    State.paintWidth = State.paintWidth or 96
+    State.paintHeight = State.paintHeight or 96
     local maxW = math.min(360, love.graphics.getWidth() - 40)
-    local maxH = love.graphics.getHeight() - 220
+    local maxH = math.max(200, love.graphics.getHeight() - 220)
     State.paintScale = math.min(maxW / State.paintWidth, maxH / State.paintHeight)
 end
 
