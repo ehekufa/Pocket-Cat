@@ -58,48 +58,190 @@ function M.hsvToRGB(h, s, v)
     return r, g, b
 end
 
--- Простой JSON (для совместимости)
+-- ============================ JSON ============================
 M.json = {}
-function M.json.encode(obj)
-    if type(obj) == "table" then
-        local t = {}
-        for k, v in pairs(obj) do table.insert(t, '"' .. tostring(k) .. '":' .. M.json.encode(v)) end
-        return "{" .. table.concat(t, ",") .. "}"
-    elseif type(obj) == "string" then return '"' .. obj .. '"'
-    elseif type(obj) == "number" then return tostring(obj)
-    elseif type(obj) == "boolean" then return obj and "true" or "false"
-    else return "null" end
+
+local function escapeStr(s)
+    s = s:gsub("\\", "\\\\")
+    s = s:gsub("\"", "\\\"")
+    s = s:gsub("\n", "\\n")
+    s = s:gsub("\r", "\\r")
+    s = s:gsub("\t", "\\t")
+    s = s:gsub("[%c]", function(ch)
+        return string.format("\\u%04x", ch:byte())
+    end)
+    return s
 end
-function M.json.decode(str)
-    str = str:gsub("%s", "")
-    local pos = 1
-    local function parse()
-        local c = str:sub(pos, pos)
-        if c == '{' then
-            pos = pos + 1
-            local obj = {}
-            while str:sub(pos, pos) ~= '}' do
-                local key = parse()
-                pos = pos + 1
-                local val = parse()
-                obj[key] = val
-                if str:sub(pos, pos) == ',' then pos = pos + 1 end
+
+local function isArray(t)
+    local n = 0
+    for k in pairs(t) do
+        if type(k) ~= "number" then return false end
+        n = n + 1
+    end
+    return n == #t
+end
+
+function M.json.encode(obj)
+    local t = type(obj)
+    if t == "table" then
+        if isArray(obj) then
+            local parts = {}
+            for _, v in ipairs(obj) do
+                table.insert(parts, M.json.encode(v))
             end
-            pos = pos + 1
-            return obj
-        elseif c == '"' then
-            local start = pos + 1
-            local finish = str:find('"', start)
-            local val = str:sub(start, finish-1)
-            pos = finish + 1
-            return val
-        elseif c:match("[%d]") then
-            local val = str:match("([%d.]+)", pos)
-            pos = pos + #val
-            return tonumber(val)
+            return "[" .. table.concat(parts, ",") .. "]"
+        end
+        local parts = {}
+        for k, v in pairs(obj) do
+            if v ~= nil and type(v) ~= "function" then
+                table.insert(parts, '"' .. escapeStr(tostring(k)) .. '":' .. M.json.encode(v))
+            end
+        end
+        return "{" .. table.concat(parts, ",") .. "}"
+    elseif t == "string" then
+        return '"' .. escapeStr(obj) .. '"'
+    elseif t == "number" then
+        if obj ~= obj or obj == math.huge or obj == -math.huge then return "null" end
+        if obj == math.floor(obj) and math.abs(obj) < 1e15 then
+            return string.format("%d", obj)
+        end
+        return string.format("%.14g", obj)
+    elseif t == "boolean" then
+        return obj and "true" or "false"
+    end
+    return "null"
+end
+
+function M.json.decode(str)
+    if type(str) ~= "string" or str == "" then return nil end
+    local pos = 1
+    local len = #str
+
+    local function skipWs()
+        while pos <= len do
+            local c = str:sub(pos, pos)
+            if c == " " or c == "\t" or c == "\n" or c == "\r" then
+                pos = pos + 1
+            else
+                break
+            end
         end
     end
-    return parse()
+
+    local parseValue
+
+    local function parseString()
+        -- pos на открывающей кавычке
+        pos = pos + 1
+        local out = {}
+        while pos <= len do
+            local c = str:sub(pos, pos)
+            if c == '"' then
+                pos = pos + 1
+                return table.concat(out)
+            elseif c == "\\" then
+                local e = str:sub(pos + 1, pos + 1)
+                if e == "n" then table.insert(out, "\n")
+                elseif e == "r" then table.insert(out, "\r")
+                elseif e == "t" then table.insert(out, "\t")
+                elseif e == "b" then table.insert(out, "\b")
+                elseif e == "f" then table.insert(out, "\f")
+                elseif e == "/" then table.insert(out, "/")
+                elseif e == "\\" then table.insert(out, "\\")
+                elseif e == '"' then table.insert(out, '"')
+                elseif e == "u" then
+                    local hex = str:sub(pos + 2, pos + 5)
+                    local code = tonumber(hex, 16)
+                    if code then
+                        -- UTF-8
+                        if code < 0x80 then
+                            table.insert(out, string.char(code))
+                        elseif code < 0x800 then
+                            table.insert(out, string.char(0xC0 + math.floor(code / 0x40), 0x80 + code % 0x40))
+                        else
+                            table.insert(out, string.char(0xE0 + math.floor(code / 0x1000),
+                                0x80 + math.floor(code / 0x40) % 0x40, 0x80 + code % 0x40))
+                        end
+                    end
+                    pos = pos + 4
+                end
+                pos = pos + 2
+            else
+                table.insert(out, c)
+                pos = pos + 1
+            end
+        end
+        return table.concat(out)
+    end
+
+    local function parseNumber()
+        local s = str:match("^-?%d+%.?%d*[eE]?[%+%-]?%d*", pos)
+        pos = pos + #s
+        return tonumber(s)
+    end
+
+    -- объект с числовыми ключами ("1":..) превращаем в массив (старые файлы)
+    local function maybeArray(obj)
+        local n = 0
+        for k in pairs(obj) do
+            if type(k) ~= "string" or not k:match("^%d+$") then return obj end
+            n = n + 1
+        end
+        if n == 0 then return obj end
+        local arr = {}
+        for k, v in pairs(obj) do
+            arr[tonumber(k)] = v
+        end
+        return arr
+    end
+
+    parseValue = function()
+        skipWs()
+        local c = str:sub(pos, pos)
+        if c == "{" then
+            pos = pos + 1
+            local obj = {}
+            skipWs()
+            if str:sub(pos, pos) == "}" then pos = pos + 1 return obj end
+            while pos <= len do
+                skipWs()
+                local key = parseString()
+                skipWs()
+                if str:sub(pos, pos) == ":" then pos = pos + 1 end
+                obj[key] = parseValue()
+                skipWs()
+                local sep = str:sub(pos, pos)
+                if sep == "," then pos = pos + 1
+                elseif sep == "}" then pos = pos + 1 break end
+            end
+            return maybeArray(obj)
+        elseif c == "[" then
+            pos = pos + 1
+            local arr = {}
+            skipWs()
+            if str:sub(pos, pos) == "]" then pos = pos + 1 return arr end
+            while pos <= len do
+                table.insert(arr, parseValue())
+                skipWs()
+                local sep = str:sub(pos, pos)
+                if sep == "," then pos = pos + 1
+                elseif sep == "]" then pos = pos + 1 break end
+            end
+            return arr
+        elseif c == '"' then
+            return parseString()
+        elseif c == "t" then pos = pos + 4; return true
+        elseif c == "f" then pos = pos + 5; return false
+        elseif c == "n" then pos = pos + 4; return nil
+        else
+            return parseNumber()
+        end
+    end
+
+    local ok, res = pcall(parseValue)
+    if ok then return res end
+    return nil
 end
 
 return M

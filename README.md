@@ -1,81 +1,79 @@
 # Pocket Cat
 
-Two versions: English first, then Russian.
+Конструктор игр на блоках в стиле **Pocket Code (Catrobat)**, на LÖVE.
+Интерфейс повторяет мобильный Pocket Code: домашний экран, проект с «Фон» и
+«Актеры и объекты», вкладки скриптов/образов/звуков, экран «Категории» и
+полный набор блоков.
 
----
+## 🇷🇺 Что внутри
 
-## 🇬🇧 English (EN)
+### Интерфейс (как в Pocket Code)
+- **Домашний экран «Покет Код»**: превью сцены, кнопка-карандаш (редактор),
+  кнопка запуска, «Проекты на устройстве», «Сообщество Catrobat», FAB «+».
+- **Проекты на устройстве**: список `.cat`, открытие, удаление, создание.
+- **Экран проекта**: строка «Фон», список «Актеры и объекты» с миниатюрами,
+  меню «⋮», FAB «▶» (запуск) и «+» (новый актер или объект).
+- **Диалог «Новый актер или объект»**: имя + примечание «будет создан без образа»,
+  а также выбор источника: Нарисовать / Загрузить из библиотеки / Загрузить из
+  галереи / Сделать снимок / Портфель / Локальные актеры и объекты /
+  Пустой объект / Загрузить из локальных проектов.
+- **Экран объекта**: вкладки (скрипты / образы / звуки), скрипты в виде
+  блоков-паззлов со шляпами событий, C-блоками и «иначе», параметры-пузыри,
+  выпадающие списки, меню блока (удалить / добавить внутрь / в «иначе»).
+- **Категории**: Событие, Управление, Движение, Звук, Образы, Перо, Данные,
+  Устройство — цвета как в оригинале.
+- **Редактор рисования** образов (кисть, ластик, заливка, фигуры, HSV-палитра).
 
-This is a hobby project — a block-based game builder inspired by Pocket Up, but built with LÖVE instead of Corona.
+### Блоки (~100, по официальной документации Catrobat)
+Каталог блоков взят из официальной документации
+[Brick Documentation](https://catrobat.org/docs/brickdocumentation/) и
+переведён на русский, как в Pocket Code: «При запуске сцены»,
+«Клонировать себя», «Ждать … секунд», «Плыть … с к x y», «Сказать …»,
+«Опустить перо», «Задать переменную», «Вибрировать» и т.д. — см. `src/catalog.lua`.
 
-Why LÖVE? Because I wanted something cross-platform that works on PC, phones, and maybe even toasters (okay, not toasters). The code is rough, the UI is clunky, but it kinda works.
+### Рантайм
+Корутинный движок: события (старт, касания, «когда получено», «когда … истинно»,
+клонирование), циклы/условия, движение с отскоком от края, перо и штампы,
+образы (размер/прозрачность/яркость/облачка речи), звук (воспроизведение,
+громкость, синтез нот и барабанов, темп), переменные и списки, блоки устройства
+(вибрация и т.п.), запрос «Спросить … и записать ответ».
 
-If you're looking for a polished game maker, this isn't it. If you want to tinker, break things, or contribute — be my guest.
+### Прочее
+- Сохранение/загрузка проектов в JSON (`.cat`), миграция старых проектов.
+- Демо-проект «Мой проект» с небом, облаками и птицей — как на скриншотах.
+- Headless-тест интерфейса и рантайма: `test/run.lua` (мок LÖVE).
 
-### What's inside
+## Как запустить
 
-- Drag-and-drop blocks with editable params (numbers, letters, +, -).
-- Scenes and objects (switch, add, delete).
-- A basic sprite editor (pixel-level, nothing fancy).
-- Variables and simple math in block parameters (like `x+10`).
-- Save/load projects as JSON (`.cat` files).
-- Auto-build for Android (arm64 APK) and Windows portable EXE via GitHub Actions.
+Нужен LÖVE 11.x: откройте папку проекта как love-приложение
+(`love Pocket-Cat`). На Android — сборка через GitHub Actions (APK).
 
-### How to run
+## Тест без LÖVE
 
-Get LÖVE 11.5, then open the project folder as a love app.  
-On Android, build the APK or grab a pre-built one from Actions/Releases.  
-For everything else — read the code, it's self-documenting (kinda).
+```
+pip install lupa
+POCKETCAT_TESTDIR=/tmp/pocketcat_test python3 -c "
+from lupa import LuaRuntime
+LuaRuntime().execute(open('test/run.lua').read())"
+```
 
-### Known issues
+## Структура
 
-- Block dragging is janky, especially with nested blocks.
-- Mobile UI isn't really optimised (fullscreen only).
-- No proper docs, sorry.
+- `main.lua` — загрузка и callbacks LÖVE;
+- `src/screens.lua` — все экраны, диалоги, ввод;
+- `src/catalog.lua` — каталог категорий и блоков;
+- `src/blocks.lua` — отрисовка блоков-паззлов и списка категории;
+- `src/runtime.lua` — исполнение скриптов (корутины);
+- `src/project.lua` — модель проекта, сохранение, библиотека спрайтов;
+- `src/paint.lua` — редактор образов;
+- `src/theme.lua`, `src/ui.lua` — тема и виджеты;
+- `src/utils.lua` — JSON, HSV; `src/expr.lua` — формулы и условия;
+- устаревшие модули (не подключаются): `src/constants.lua`, `src/keyboard.lua`,
+  `src/firebase.lua`.
 
-### Developers
+## Разработчики
 
-- **derka** — UI, block system, sprite editor, debugging, architecture, core logic, Android build.
-- **dimas4ek229** — idea.
-
-We're not actively maintaining this, but PRs are welcome.  
-Use it, break it, fix it — it's MIT.
-
----
-
-## 🇷🇺 Русская версия (RU)
-
-Это хобби-проект — конструктор игр на блоках, вдохновлённый Pocket Up, но написанный на LÖVE, а не на Corona.
-
-Почему LÖVE? Потому что хотелось кроссплатформенности, чтобы работало и на ПК, и на телефонах. Код сыроват, интерфейс неидеален, но в целом оно работает.
-
-Если вы ищете готовый инструмент для создания игр — это не оно. Если хотите покопаться, поломать или доработать — добро пожаловать.
-
-### Что внутри
-
-- Блоки с параметрами (перетаскивание, редактирование: цифры, буквы, +, -).
-- Сцены и объекты (переключение, добавление, удаление).
-- Примитивный редактор спрайтов (попиксельный, без наворотов).
-- Переменные и простая арифметика в параметрах (типа `x+10`).
-- Сохранение/загрузка проектов в JSON (файлы `.cat`).
-- Автосборка APK (только arm64) и портативного EXE через GitHub Actions.
-
-### Как запустить
-
-Поставьте LÖVE 11.5, откройте папку проекта как love-приложение.  
-На Android — соберите APK или возьмите готовый из Actions/Releases.  
-Всё остальное — в коде, он сам себя документирует (ну, почти).
-
-### Известные проблемы
-
-- Перетаскивание блоков работает с костылями, особенно с вложенными.
-- Интерфейс под мобилки не оптимизирован (только полноэкранный режим).
-- Нормальной документации нет, извините.
-
-### Разработчики
-
-- **derka** — интерфейс, система блоков, редактор спрайтов, отладка, архитектура, ядро, сборка под Android.
+- **derka** — UI, блок-система, редактор спрайтов, ядро, сборка под Android.
 - **dimas4ek229** — идея.
 
-Мы не поддерживаем проект активно, но пул-реквесты принимаются.  
-Используйте, ломайте, чините — код под MIT.
+Код под MIT. Используй, ломай, чини — пул-реквесты приветствуются.

@@ -1,103 +1,83 @@
 -- src/state.lua
+-- Глобальное состояние приложения
 local State = {
-    project = nil,
-    currentSceneIdx = 1,
-    currentObjectIdx = 1,
-    currentScreen = "main",
-    currentProject = nil,
-    currentProjectIndex = 1,
+    -- навигация
+    screen = "home",        -- home | projects | project | object | categories | catblocks
+    tab = "scripts",        -- scripts | looks | sounds (экран объекта)
+    scroll = {},            -- скролл по экранам
+
+    -- проекты
     projects = {},
-    showCreateProject = false,
-    newProjectName = "",
-    selectedOrientation = "portrait",
-    selectedCategory = nil,
-    showCategoryBlocks = false,
+    currentProjectIndex = 1,
+    currentProject = nil,
+    project = nil,          -- данные текущего проекта (таблица)
+    currentSceneIdx = 1,
+    currentObjectIdx = 1,   -- индекс объекта в сцене (0 = фон)
+    selectedCategory = nil, -- для экрана catblocks
 
-    paletteBlocks = {},
-    workspaceBlocks = {},
+    -- диалоги / оверлеи
+    dialog = nil,           -- {kind=..., ...}
+    menu = nil,             -- {x,y,items=[{label,fn}]}
+    dropdown = nil,         -- {x,y,options=[..],fn}
+    input = nil,            -- {title,text,commit}
+    blockPopup = nil,       -- {block,list,index,x,y} меню блока (удалить/инфо)
 
-    paletteWidth = 200,
-    paletteScrollY = 0,
-    paletteContentHeight = 0,
+    -- редактор блоков
+    editTarget = nil,       -- {kind="object"|"background"}
+    scriptScroll = 0,
 
-    workspaceStartX = 216,
-    workspaceStartY = 106,
-    blockWidth = 160,
-    blockHeight = 34,
-    blockSpacing = 6,
-    workspaceScrollY = 0,
-    workspaceContentHeight = 0,
+    -- runtime
+    running = false,
+    rt = nil,
 
-    draggingBlock = nil,
-    dragFromPalette = false,
+    -- paint
+    paintMode = false,
+    paintOnSave = nil,
 
-    longPressBlockIdx = nil,
-    longPressStartTime = 0,
-    longPressMoved = false,
+    -- прочее
+    font = nil,
+    fontSmall = nil,
+    fontBig = nil,
+    messages = {},
+    messageTimers = {},
+    imageCache = {},
 
+    keyboardVisible = false,
     editingBlock = nil,
     editingText = "",
     inputMode = nil,
-
-    paintMode = false,
-    paintCanvas = nil,
-    paintWidth = 64,
-    paintHeight = 64,
-    paintScale = 1,
-    paintBrushColor = {1,1,1},
-    paintCurrentTool = "brush",
-    paintTools = {"brush", "eraser", "fill", "picker", "line", "rect", "ellipse"},
-    paintColors = {
-        {1,1,1}, {0,0,0}, {1,0,0}, {0,1,0}, {0,0,1}, {1,1,0}, {1,0,1}, {0,1,1},
-        {0.5,0.5,0.5}, {1,0.5,0}, {0.5,0,0.5}, {0,0.5,0.5}
-    },
-    paintSizes = {1, 2, 4, 8},
-    paintPresetSizes = {{64,64}, {32,32}, {16,16}, {128,128}, {200,146}},
-    paintCustomStep = 0,
-    paintCustomInputText = "",
-    paintHue = 0,
-    paintSaturation = 1,
-    paintValue = 1,
-    lineStart = nil,
-    rectStart = nil,
-    ellipseStart = nil,
-
-    eventHandlers = {},
-    stopAll = false,
-    waitTimer = 0,
-    isTapped = false,
-    isReleased = false,
-    touchActive = false,
-    penDown = false,
-    penColor = {1,0,0},
-    penSize = 2,
-    penPoints = {},
-    messages = {},
-    vars = {},
-
-    showCube = false,
-    showSphere = false,
-    showImage = false,
-    cubeX = 200,
-    cubeY = 300,
-    sphereX = 400,
-    sphereY = 300,
-    objectAngle = 0,
-    objectColor = {0.2, 0.8, 0.4},
-    objectSize = 50,
-    cubeVertices = {{-1,-1,-1},{1,-1,-1},{1,1,-1},{-1,1,-1},{-1,-1,1},{1,-1,1},{1,1,1},{-1,1,1}},
-    cubeEdges = {{1,2},{2,3},{3,4},{4,1},{5,6},{6,7},{7,8},{8,5},{1,5},{2,6},{3,7},{4,8}},
-
-    font = nil,
-    fontSize = 16,
-    clipboard = nil,
-    bgColor = {0.1, 0.1, 0.1},
-    keyboardVisible = false,
 }
 
 function State.init()
-    local constants = require("src.constants")
-    State.paletteBlocks = constants.paletteBlocks
+    State.messages = {}
+end
+
+function State.toast(msg)
+    table.insert(State.messages, {text = msg, t = love.timer.getTime()})
+    if #State.messages > 6 then table.remove(State.messages, 1) end
+end
+
+function State.currentScene()
+    if not State.project then return nil end
+    return State.project.scenes[State.currentSceneIdx]
+end
+
+function State.currentObject()
+    local s = State.currentScene()
+    if not s then return nil end
+    return s.objects[State.currentObjectIdx]
+end
+
+-- Скрипты текущей цели редактирования (объект или фон)
+function State.currentScripts()
+    local s = State.currentScene()
+    if not s then return {} end
+    if State.currentObjectIdx == 0 then
+        return s.backgroundScripts or {}
+    end
+    local obj = s.objects[State.currentObjectIdx]
+    if not obj then return {} end
+    return obj.scripts or {}
 end
 
 return State
